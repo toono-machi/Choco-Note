@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6b493e">
+  <meta name="description" content="ゲーム制作の進捗メモから、ChatGPTに渡すnote記事代筆依頼書を作成するブラウザツール。">
+  <title>Choco Note｜note記事 代筆依頼書メーカー</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --coffee: #65473c;
+      --coffee-dark: #3f2e29;
+      --coffee-light: #876559;
+      --caramel: #b68368;
+      --paper: #fbf8f3;
+      --cream: #f5efe6;
+      --vanilla: #ece2d5;
+      --border: #e4d8cb;
+      --ink: #453b37;
+      --muted: #877b73;
+      --white: #fffdf9;
+      --danger: #a44d4a;
+      --shadow: 0 16px 42px rgba(73, 46, 33, .09);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.75;
+      background:
+        radial-gradient(ellipse 75% 44% at 4% 0%, #f6e7d7 0, transparent 76%),
+        linear-gradient(120deg, #f5efe6, #faf7f2 68%, #f4eee6);
+      color: var(--ink);
+    }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 3px solid rgba(185, 123, 89, .48); outline-offset: 2px;
+    }
+    ::selection { background: #d9b69d; color: #35241e; }
+    .app-header {
+      background: rgba(255, 253, 249, .92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .header-inner {
+      max-width: 1730px; margin: auto; min-height: 79px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 18px; padding: 13px 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark {
+      width: 49px; height: 49px; flex-shrink: 0; border-radius: 16px;
+      display: grid; place-items: center; color: #fff7ed; background: var(--coffee);
+      font-size: 24px; box-shadow: inset 0 -4px 0 rgba(0,0,0,.08);
+    }
+    .brand-title { font-family: Georgia, "Yu Mincho", serif; color: var(--coffee-dark); font-size: 22px; font-weight: 700; line-height: 1.1; letter-spacing: .01em; }
+    .brand-sub { display: block; color: var(--muted); font-size: 11px; letter-spacing: .08em; margin-top: 6px; }
+    .header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+    .save-note { color: var(--muted); font-size: 11px; margin-right: 8px; white-space: nowrap; }
+    .btn {
+      border-radius: 11px; border: 1px solid var(--border); background: var(--white);
+      color: var(--coffee); padding: 9px 13px; font-weight: 700; display: inline-flex;
+      align-items: center; justify-content: center; gap: 7px; line-height: 1.4;
+      transition: background .15s, border-color .15s, transform .15s; white-space: nowrap;
+    }
+    .btn:hover { background: var(--cream); border-color: #d1b6a6; }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--coffee); color: #fffdf9; border-color: var(--coffee); }
+    .btn-primary:hover { background: var(--coffee-dark); border-color: var(--coffee-dark); }
+    .btn-quiet { background: transparent; }
+    .btn-danger { color: var(--danger); }
+    .btn-small { font-size: 12px; padding: 7px 10px; border-radius: 9px; }
+    .app-layout {
+      max-width: 1730px; margin: 0 auto; padding: 23px 25px 40px;
+      display: grid; grid-template-columns: 220px minmax(390px, 1fr) minmax(350px, 440px);
+      gap: 20px; align-items: start;
+    }
+    .panel { background: rgba(255,253,249,.93); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .sidebar { position: sticky; top: 104px; padding: 22px 13px 16px; }
+    .side-heading { padding: 0 9px; font-size: 11px; font-weight: 800; color: var(--coffee-light); letter-spacing: .12em; }
+    .sidebar nav { margin-top: 15px; display: grid; gap: 4px; }
+    .nav-step {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      border: 1px solid transparent; border-radius: 12px; padding: 11px 9px;
+      background: transparent; color: #6d615b; font-weight: 700; line-height: 1.35;
+    }
+    .nav-step:hover { background: #f5efe9; }
+    .nav-step[aria-current="step"] { color: var(--coffee-dark); background: #eee0d2; border-color: #ddcab8; }
+    .step-num { display: grid; place-items: center; flex: 0 0 27px; height: 27px; border: 1px solid #d9c8bc; background: var(--white); border-radius: 9px; font-size: 11px; font-weight: 800; color: var(--coffee-light); }
+    .nav-step[aria-current="step"] .step-num { background: var(--coffee); color: white; border-color: var(--coffee); }
+    .step-check { margin-left: auto; color: var(--caramel); font-size: 13px; opacity: 0; }
+    .nav-step.has-value .step-check { opacity: 1; }
+    .side-foot { border-top: 1px solid var(--border); margin: 19px 7px 0; padding-top: 17px; }
+    .progress-title { display: flex; align-items: center; justify-content: space-between; color: var(--coffee-dark); font-size: 12px; font-weight: 700; }
+    .progress-track { height: 7px; margin: 10px 0; background: #efe8e0; border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, #af806b, #755042); border-radius: 99px; transition: width .2s; }
+    .side-foot p { color: var(--muted); font-size: 11px; line-height: 1.7; margin: 10px 0 0; }
+    .editor { padding: 30px clamp(19px, 3vw, 37px) 27px; min-height: 690px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #97725e; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .eyebrow::before { content: ''; display: block; width: 17px; height: 2px; background: #bd9a84; }
+    .editor h1 { margin: 12px 0 9px; font-family: Georgia, "Yu Mincho", serif; font-size: clamp(23px, 2.4vw, 31px); font-weight: 700; letter-spacing: .02em; color: var(--coffee-dark); line-height: 1.45; }
+    .editor .section-description { margin: 0 0 25px; font-size: 13px; color: var(--muted); }
+    .field-grid { display: grid; gap: 21px; }
+    .field { display: flex; flex-direction: column; gap: 7px; }
+    .field label, .field-label { color: #59473e; font-weight: 750; font-size: 13px; }
+    .field .field-tip { margin: -1px 0 2px; color: var(--muted); font-size: 11px; }
+    .input {
+      min-height: 43px; width: 100%; border: 1px solid #ded1c3; background: #fffdfb;
+      border-radius: 11px; color: var(--ink); padding: 10px 13px; transition: border-color .15s, box-shadow .15s;
+    }
+    .input:focus { border-color: #a87e69; outline: none; box-shadow: 0 0 0 3px #d8b7a453; }
+    .input::placeholder { color: #ad9f95; opacity: 1; font-weight: 400; }
+    textarea.input { min-height: 95px; resize: vertical; line-height: 1.85; }
+    select.input { padding-right: 30px; cursor: pointer; }
+    .title-registry { display: grid; gap: 13px; padding: 17px; border: 1px solid #e6d8c9; border-radius: 14px; background: #faf6f0; }
+    .title-registry .field { gap: 7px; }
+    .title-row { display: flex; align-items: stretch; gap: 9px; }
+    .title-row > .input { flex: 1; min-width: 0; }
+    .title-row > .btn { flex-shrink: 0; }
+    .title-registry-note { color: var(--muted); font-size: 11px; margin: 0; }
+    .title-divider { border: 0; border-top: 1px solid #e7d9cd; margin: 1px 0; }
+    .editor-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--border); margin-top: 29px; padding-top: 21px; }
+    .editor-bottom .btn { min-width: 101px; }
+    .editor-bottom .muted-info { font-size: 11px; color: var(--muted); }
+    .editor-bottom .nav-buttons { display: flex; gap: 9px; margin-left: auto; }
+    .preview { position: sticky; top: 104px; padding: 21px; }
+    .preview-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .preview-title h2 { font-size: 19px; line-height: 1.45; margin: 6px 0 4px; color: var(--coffee-dark); font-family: Georgia, "Yu Mincho", serif; }
+    .live-dot { background: #e1ebdf; color: #65815c; border-radius: 99px; font-size: 10px; padding: 3px 8px; font-weight: 800; white-space: nowrap; margin-top: 9px; }
+    .preview-lead { margin: 11px 0 16px; color: var(--muted); font-size: 12px; }
+    .paper { border: 1px solid #e7d9c9; border-radius: 12px; background: #fffefb; box-shadow: inset 0 2px 0 #f7efe5; overflow: hidden; }
+    .paper-top { height: 10px; background: repeating-linear-gradient(90deg, #ceb4a0 0, #ceb4a0 17px, #f1e5d9 17px, #f1e5d9 25px); opacity: .6; }
+    .output {
+      display: block; width: 100%; height: clamp(330px, 52vh, 625px); border: 0; resize: vertical;
+      padding: 19px 17px; font-size: 12px; line-height: 1.95; color: #554940;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+      background: transparent; outline: none; overflow-wrap: anywhere;
+    }
+    .preview-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 15px; }
+    .preview-actions .btn { padding: 11px 8px; }
+    .preview-meta { color: var(--muted); font-size: 11px; margin: 12px 0 0; text-align: right; }
+    .hint-box { border: 1px solid #e8d7c6; border-radius: 12px; background: #f8f0e8; padding: 13px 15px; color: #72594e; font-size: 12px; margin-top: 16px; line-height: 1.8; }
+    .hint-box strong { color: #604638; }
+    .image-items { display: grid; gap: 15px; }
+    .image-item { padding: 18px; background: #faf6f0; border: 1px solid #e6d8c9; border-radius: 14px; }
+    .image-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 13px; }
+    .image-index { color: var(--coffee); font-weight: 800; }
+    .image-item .field-grid { gap: 14px; }
+    .image-controls { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    .empty-images { border: 1px dashed #d8c6b5; background: #faf6f0; border-radius: 13px; padding: 24px 12px; text-align: center; color: var(--muted); font-size: 12px; }
+    .empty-images .empty-icon { font-size: 28px; color: #ab8771; margin-bottom: 6px; }
+    .tag-preview { margin-top: 17px; padding: 16px; border: 1px solid var(--border); background: #faf6f1; border-radius: 13px; }
+    .tag-preview strong { font-size: 12px; color: #655044; }
+    .tag-pills { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+    .tag-pill { border-radius: 99px; background: #eee1d3; color: #6f4b3c; font-weight: 700; font-size: 11px; padding: 3px 10px; }
+    .tag-none { color: #988a81; font-size: 12px; margin-top: 6px; }
+    .notice-inline { margin-top: 15px; color: #8f8077; font-size: 11px; }
+    .toast { position: fixed; left: 50%; bottom: 23px; transform: translate(-50%, 18px); color: white; background: #4e3a32; border-radius: 12px; padding: 11px 18px; z-index: 30; pointer-events: none; opacity: 0; transition: opacity .22s, transform .22s; font-size: 12px; box-shadow: var(--shadow); max-width: calc(100vw - 35px); text-align: center; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .footer { max-width: 1700px; padding: 0 28px 22px; margin: 0 auto; text-align: center; color: #a2968d; font-size: 11px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; border: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+    @media (max-width: 1280px) {
+      .app-layout { grid-template-columns: 180px minmax(330px, 1fr) minmax(320px, 385px); gap: 13px; padding: 17px 15px 30px; }
+      .sidebar { padding: 18px 8px 14px; }
+      .editor { padding: 25px 21px; }
+      .preview { padding: 17px; }
+      .header-inner { padding-inline: 16px; }
+    }
+    @media (max-width: 1060px) {
+      .app-layout { grid-template-columns: 1fr minmax(320px, .85fr); }
+      .sidebar { position: static; grid-column: 1 / -1; padding: 12px 14px; }
+      .sidebar nav { display: flex; overflow-x: auto; gap: 6px; margin-top: 6px; padding-bottom: 3px; }
+      .nav-step { white-space: nowrap; width: auto; flex-shrink: 0; padding: 7px 11px; }
+      .side-heading, .side-foot { display: none; }
+      .editor { min-height: 640px; }
+      .preview { top: 98px; }
+    }
+    @media (max-width: 740px) {
+      .header-inner { min-height: 0; flex-wrap: wrap; gap: 11px; }
+      .brand-title { font-size: 20px; }
+      .brand-mark { width: 43px; height: 43px; }
+      .header-actions { width: 100%; justify-content: flex-start; }
+      .save-note { margin-right: auto; }
+      .app-header { position: static; }
+      .app-layout { display: flex; flex-direction: column; gap: 13px; padding: 13px 12px 24px; }
+      .sidebar, .editor, .preview { width: 100%; }
+      .editor { min-height: auto; padding: 25px 19px 22px; }
+      .preview { position: static; }
+      .output { height: 320px; }
+      .footer { padding: 0 15px 20px; }
+      .title-row { flex-wrap: wrap; }
+      .title-row > .btn { flex: 1 1 auto; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand" aria-label="Choco Note">
+        <div class="brand-mark" aria-hidden="true">✎</div>
+        <div>
+          <div class="brand-title">Choco Note</div>
+          <span class="brand-sub">NOTE ARTICLE REQUEST STUDIO</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="save-note" id="saveStatus" aria-live="polite">入力内容は自動保存されます</span>
+        <button class="btn btn-small btn-quiet" id="importBtn" type="button">JSONを読み込む</button>
+        <button class="btn btn-small btn-quiet" id="exportBtn" type="button">JSONで保存</button>
+        <button class="btn btn-small btn-danger" id="resetBtn" type="button">記事入力をクリア</button>
+        <input class="sr-only" id="importFile" type="file" accept=".json,application/json">
+      </div>
+    </div>
+  </header>
+  <div class="app-layout">
+    <aside class="sidebar panel" aria-label="入力セクション">
+      <div class="side-heading">FORM SECTIONS</div>
+      <nav id="sectionNav" aria-label="入力セクション切り替え"></nav>
+      <div class="side-foot">
+        <div class="progress-title"><span>入力済みセクション</span><span id="progressText">0 / 8</span></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <p>必要なところだけ入力すればOK。空欄は指示書から自動で省かれます。</p>
+      </div>
+    </aside>
+
+    <main class="editor panel">
+      <span class="eyebrow" id="sectionEyebrow">STEP 01 / 08</span>
+      <h1 id="sectionTitle">記事の基本情報</h1>
+      <p class="section-description" id="sectionDescription"></p>
+      <div id="sectionContent"></div>
+      <div class="editor-bottom">
+        <span class="muted-info" id="sectionCount">空欄は出力されません</span>
+        <div class="nav-buttons">
+          <button class="btn" id="previousBtn" type="button">← 前へ</button>
+          <button class="btn btn-primary" id="nextBtn" type="button">次へ →</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="preview panel" aria-label="指示書プレビュー">
+      <div class="preview-title">
+        <div>
+          <span class="eyebrow">LIVE PREVIEW</span>
+          <h2>GPTへの代筆依頼書</h2>
+        </div>
+        <span class="live-dot">● 自動更新</span>
+      </div>
+      <p class="preview-lead">記入した内容だけを反映。固定の執筆条件も自動で追加します。</p>
+      <div class="paper">
+        <div class="paper-top" aria-hidden="true"></div>
+        <textarea id="outputText" class="output" aria-label="生成された代筆依頼書" readonly spellcheck="false"></textarea>
+      </div>
+      <div class="preview-actions">
+        <button class="btn btn-primary" id="copyBtn" type="button">⧉ 指示書をコピー</button>
+        <button class="btn" id="downloadBtn" type="button">↓ TXTで保存</button>
+      </div>
+      <p class="preview-meta" id="outputStats">0文字</p>
+      <div class="hint-box"><strong>使い方</strong><br>入力 → 指示書をコピー → ChatGPTに貼り付けるだけ。画像を使う場合は、実際の画像ファイルもChatGPTに添付してください。</div>
+    </aside>
+  </div>
+  <footer class="footer">Choco Note · ローカルで動作します。入力内容が自動送信されることはありません。</footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+    'use strict';
+    const STORAGE_KEY = 'choco-note-request-studio-v1';
+    const TAG_PRESETS = {
+      progress: {
+        label: '普段のゲーム制作進捗',
+        tags: ['#ゲーム制作','#インディーゲーム','#個人ゲーム開発','#ゲーム制作日記','#ノベルゲーム制作']
+      },
+      release: {
+        label: '新作ゲームの紹介・公開',
+        tags: ['#ゲーム制作','#インディーゲーム','#フリーゲーム','#ノベルゲーム','#ゲーム']
+      },
+      tyrano: {
+        label: 'ティラノビルダーの制作解説',
+        tags: ['#ゲーム制作','#ティラノビルダー','#ティラノスクリプト','#ゲーム開発','#個人開発']
+      },
+      ai: {
+        label: 'AIを活用したゲーム制作',
+        tags: ['#ゲーム制作','#AIゲーム制作','#生成AI','#個人ゲーム開発','#インディーゲーム']
+      },
+      design: {
+        label: 'イラスト・UIの制作過程',
+        tags: ['#ゲーム制作','#イラスト','#キャラクターデザイン','#UIデザイン','#創作記録']
+      }
+    };
+    const TYPES = [
+      ['diary','制作日記・進捗報告'], ['introduction','新作・作品紹介'],
+      ['tutorial','制作解説・技術記事'], ['behind','開発裏話'],
+      ['announcement','公開・アップデート告知'], ['other','その他']
+    ];
+    const SECTIONS = [
+      {
+        id:'basic', title:'記事の基本情報', subtitle:'まずは今回の記事で何を伝えるか整理します。',
+        fields:[
+          {key:'gameTitle',label:'ゲームタイトル',type:'title-registry'},
+          {key:'articleTopic',label:'記事のテーマ',type:'text',placeholder:'例：新しいメインUIが完成しました'},
+          {key:'articleType',label:'記事の種類',type:'select',options:TYPES},
+          {key:'mainMessage',label:'一番伝えたいこと',type:'textarea',placeholder:'読者に注目してほしいポイントを自由に記入',rows:4}
+        ]
+      },
+      {
+        id:'progress',title:'今回の制作進捗',subtitle:'今回完成・変更・実装した内容を書きます。箇条書きのメモでも大丈夫です。',
+        fields:[
+          {key:'completed',label:'完成したもの・実装した機能',type:'textarea',placeholder:'例：会話画面のUI、セーブ機能、立ち絵差分など',rows:5},
+          {key:'changed',label:'変更・修正したこと',type:'textarea',placeholder:'修正前との違い、改善点など',rows:4},
+          {key:'features',label:'ゲームとしての見どころ',type:'textarea',placeholder:'プレイヤーが楽しめる要素、他作品との違いなど',rows:4},
+          {key:'completion',label:'現在の開発状況・完成度',type:'text',placeholder:'例：シナリオ初稿完成、UI制作中'}
+        ]
+      },
+      {
+        id:'process',title:'制作過程と裏話',subtitle:'制作日記の読みどころになる情報です。書ける部分だけでOK。',
+        fields:[
+          {key:'motivation',label:'制作のきっかけ・理由',type:'textarea',placeholder:'なぜこの機能や演出を作ろうと思ったのか',rows:3},
+          {key:'commitment',label:'こだわったポイント',type:'textarea',placeholder:'配色、UI、演出、シナリオなどの工夫',rows:4},
+          {key:'troubles',label:'苦労・失敗・ボツ案',type:'textarea',placeholder:'実装で困ったこと、上手くいかなかったことなど',rows:4},
+          {key:'solutions',label:'解決方法・試行錯誤',type:'textarea',placeholder:'どう改善したか、途中で変えた方法など',rows:4},
+          {key:'episodes',label:'感想・制作エピソード',type:'textarea',placeholder:'嬉しかったこと、予想外の発見、率直な感想など',rows:4},
+          {key:'workTime',label:'制作時間・期間',type:'text',placeholder:'例：週末の2日間／約6時間'}
+        ]
+      },
+      {
+        id:'technical',title:'制作技術と素材',subtitle:'ツール・演出・AI活用など、技術寄りの記事で役立ちます。',
+        fields:[
+          {key:'tools',label:'使用したツール・ソフト',type:'textarea',placeholder:'例：ティラノビルダー、JavaScript、ChatGPT、Sunoなど',rows:3},
+          {key:'systemDetail',label:'機能の仕様・操作方法',type:'textarea',placeholder:'紹介したいシステムの動作、使い方など',rows:4},
+          {key:'artProcess',label:'イラスト・UIの制作工程',type:'textarea',placeholder:'ラフから完成までの変化、色やパーツの工夫など',rows:4},
+          {key:'scenarioProcess',label:'シナリオ・演出の制作工程',type:'textarea',placeholder:'構成、分岐、演出の意図など。ネタバレに注意',rows:4},
+          {key:'aiScope',label:'AIの活用内容・自作した部分',type:'textarea',placeholder:'AIに任せた工程と自分で制作・調整した工程を区別して記入',rows:4},
+          {key:'beforeAfter',label:'Before / After の比較',type:'textarea',placeholder:'変更前と変更後でどう変わったか',rows:3}
+        ]
+      },
+      {
+        id:'publishing',title:'公開情報と記事の希望',subtitle:'読者に向けた案内と、文章の方向性を指定します。',
+        fields:[
+          {key:'upcoming',label:'今後の制作予定・次回予告',type:'textarea',placeholder:'次に実装するもの、制作の目標など',rows:3},
+          {key:'releaseInfo',label:'公開・配布・イベント情報',type:'textarea',placeholder:'公開予定、体験版の告知、アップデート情報など',rows:3},
+          {key:'links',label:'記事に載せたいリンク',type:'textarea',placeholder:'公式サイト、ゲーム配布ページ、過去の記事など（1行ずつ）',rows:3},
+          {key:'readerQuestion',label:'読者への質問・呼びかけ',type:'textarea',placeholder:'感想の募集、意見を聞きたい内容など',rows:3},
+          {key:'audience',label:'想定読者',type:'text',placeholder:'例：ノベルゲーム好き、個人開発者'},
+          {key:'tone',label:'文章の雰囲気',type:'select',options:[['friendly','親しみやすい制作日記'],['humorous','ユーモラス・明るめ'],['technical','技術寄り・丁寧'],['calm','落ち着いた読み物'],['exciting','ワクワクする紹介文']]},
+          {key:'length',label:'希望する記事の長さ',type:'select',options:[['short','短め（500〜800字）'],['standard','標準（1,000〜2,000字）'],['long','長め（3,000字以上）']]},
+          {key:'spoilers',label:'ネタバレの許容範囲',type:'select',options:[['none','ネタバレなし'],['small','軽微なネタバレのみ'],['allowed','ネタバレ可（提供内容の範囲）']]},
+          {key:'headings',label:'見出しの希望',type:'text',placeholder:'例：見出し多め／日記らしく自然な構成'}
+        ]
+      },
+      {id:'images',title:'掲載画像と配置',subtitle:'画像の名前・内容・挿入場所を指定します。実際の画像は、指示書と一緒にChatGPTへ添付してください。',custom:'images'},
+      {id:'tags',title:'ハッシュタグの指定',subtitle:'note記事に付けるタグを、用意された5パターンから選べます。',custom:'tags'},
+      {id:'extra',title:'その他の補足',subtitle:'記事に書いてほしいこと・書いてほしくないことなどを自由に追加できます。',
+        fields:[
+          {key:'mustInclude',label:'必ず入れたい言葉・文章',type:'textarea',placeholder:'引用したい文章、作品の決まり文句など',rows:4},
+          {key:'dontInclude',label:'書かないでほしい内容',type:'textarea',placeholder:'ネタバレ、言及禁止事項、避けたい表現など',rows:4},
+          {key:'otherInstructions',label:'その他の希望・補足',type:'textarea',placeholder:'ここまでにない要望を自由に記入',rows:5}
+        ]
+      }
+    ];
+    const FIELD_MAP = new Map(SECTIONS.flatMap(s => (s.fields || []).map(f => [f.key,f])));
+    const SECTION_NAMES = Object.fromEntries(SECTIONS.map(s => [s.id,s.title]));
+    const defaultState = () => ({fields:{},images:[],tagPreset:'',extraTags:'',gameTitles:[]});
+    let state = loadState();
+    let currentSection = 0;
+    let toastTimeout;
+
+    const el = id => document.getElementById(id);
+    const clean = value => String(value ?? '').trim();
+    const addLine = (lines, label, value) => { if (clean(value)) lines.push('・' + label + '：' + clean(value)); };
+    const fieldValue = key => clean(state.fields[key]);
+    const selectedLabel = key => {
+      const f = FIELD_MAP.get(key);
+      const val = fieldValue(key);
+      if (!f || !val || f.type !== 'select') return val;
+      return f.options.find(option => option[0] === val)?.[1] || '';
+    };
+    const make = (tag, className, text) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultState();
+        const parsed = JSON.parse(raw);
+        return normalizeState(parsed);
+      } catch { return defaultState(); }
+    }
+    function normalizeState(data) {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('不正な保存データです。');
+      const result = defaultState();
+      if (data.fields && typeof data.fields === 'object' && !Array.isArray(data.fields)) {
+        for (const key of FIELD_MAP.keys()) {
+          if (typeof data.fields[key] === 'string') result.fields[key] = data.fields[key].slice(0,100000);
+        }
+      }
+      if (Array.isArray(data.images)) result.images = data.images.slice(0,100).map(item => ({
+        name: typeof item?.name === 'string' ? item.name.slice(0,500) : '',
+        description: typeof item?.description === 'string' ? item.description.slice(0,10000) : '',
+        placement: typeof item?.placement === 'string' ? item.placement.slice(0,100) : ''
+      }));
+      if (typeof data.tagPreset === 'string' && TAG_PRESETS[data.tagPreset]) result.tagPreset = data.tagPreset;
+      if (typeof data.extraTags === 'string') result.extraTags = data.extraTags.slice(0,5000);
+      if (Array.isArray(data.gameTitles)) {
+        for (const item of data.gameTitles.slice(0,100)) {
+          const title = typeof item === 'string' ? item.trim().slice(0,120) : '';
+          if (title && !result.gameTitles.includes(title)) result.gameTitles.push(title);
+        }
+      }
+      // 旧バージョンで手入力したタイトルも、自動的に登録済みタイトルへ移行します。
+      const current = String(result.fields.gameTitle || '').trim().slice(0,120);
+      if (current && !result.gameTitles.includes(current)) {
+        if (result.gameTitles.length < 100) result.gameTitles.push(current);
+        else result.fields.gameTitle = '';
+      }
+      return result;
+    }
+    function persist() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        el('saveStatus').textContent = '✓ このブラウザに保存済み';
+      } catch { el('saveStatus').textContent = '自動保存できませんでした。JSONで保存してください'; }
+    }
+    function toast(message) {
+      const node = el('toast');
+      node.textContent = message;
+      node.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => node.classList.remove('show'), 2400);
+    }
+    function createField(def, value, onInput) {
+      const wrapper = make('div','field');
+      const label = make('label','',def.label);
+      const id = 'field-' + def.key;
+      label.htmlFor = id;
+      wrapper.appendChild(label);
+      if (def.tip) wrapper.appendChild(make('p','field-tip',def.tip));
+      let input;
+      if (def.type === 'textarea') {
+        input = make('textarea','input');
+        input.rows = def.rows || 3;
+        input.placeholder = def.placeholder || '';
+      } else if (def.type === 'select') {
+        input = make('select','input');
+        input.appendChild(new Option('選択してください（任意）',''));
+        for (const [optionValue, optionLabel] of def.options) input.appendChild(new Option(optionLabel,optionValue));
+      } else {
+        input = make('input','input');
+        input.type = 'text';
+        input.placeholder = def.placeholder || '';
+      }
+      input.id = id;
+      input.value = value || '';
+      input.autocomplete = 'off';
+      input.addEventListener(def.type === 'select' ? 'change' : 'input', () => onInput(input.value));
+      wrapper.appendChild(input);
+      return wrapper;
+    }
+    function renderTitleRegistry() {
+      const wrapper = make('div','field');
+      const title = make('label','', 'ゲームタイトル');
+      title.htmlFor = 'field-gameTitle';
+      wrapper.appendChild(title);
+      const registry = make('div','title-registry');
+      const selectRow = make('div','field');
+      const select = make('select','input');
+      select.id = 'field-gameTitle';
+      select.setAttribute('aria-label','登録済みゲームタイトル');
+      select.appendChild(new Option('タイトルを選択してください（任意）',''));
+      for (const gameTitle of state.gameTitles) select.appendChild(new Option(gameTitle,gameTitle));
+      select.value = state.fields.gameTitle || '';
+      select.addEventListener('change',() => {
+        state.fields.gameTitle = select.value;
+        refreshAfterInput();
+        renderSection();
+      });
+      selectRow.appendChild(select);
+      registry.appendChild(selectRow);
+      const removeRow = make('div','title-row');
+      const currentStatus = make('p','title-registry-note',`登録済み：${state.gameTitles.length}件（最大100件）`);
+      currentStatus.style.flex = '1';
+      currentStatus.style.alignSelf = 'center';
+      const removeButton = make('button','btn btn-small btn-danger','選択したタイトルを削除');
+      removeButton.type = 'button';
+      removeButton.disabled = !state.fields.gameTitle;
+      removeButton.addEventListener('click',() => {
+        const selected = state.fields.gameTitle;
+        if (!selected || !confirm(`「${selected}」を登録リストから削除しますか？\n※記事本文のその他の入力内容は消えません。`)) return;
+        state.gameTitles = state.gameTitles.filter(item => item !== selected);
+        state.fields.gameTitle = '';
+        renderSection(); refreshAfterInput();
+        toast('タイトルを登録リストから削除しました');
+      });
+      removeRow.append(currentStatus,removeButton);
+      registry.appendChild(removeRow);
+      registry.appendChild(make('hr','title-divider'));
+      const addLabel = make('label','field-label','新しいゲームタイトルを登録');
+      addLabel.htmlFor = 'newGameTitle';
+      registry.appendChild(addLabel);
+      const addRow = make('div','title-row');
+      const addInput = make('input','input');
+      addInput.id = 'newGameTitle';
+      addInput.type = 'text';
+      addInput.maxLength = 120;
+      addInput.placeholder = '新しい作品名を入力';
+      addInput.autocomplete = 'off';
+      const addButton = make('button','btn btn-primary','＋ 登録');
+      addButton.type = 'button';
+      function addTitle() {
+        const text = clean(addInput.value);
+        if (!text) { toast('登録するゲームタイトルを入力してください'); addInput.focus(); return; }
+        const exists = state.gameTitles.find(t => t === text);
+        if (!exists && state.gameTitles.length >= 100) { toast('登録できるタイトルは最大100件です'); return; }
+        if (!exists) state.gameTitles.push(text);
+        state.fields.gameTitle = text;
+        renderSection(); refreshAfterInput();
+        toast(exists ? '登録済みのタイトルを選択しました' : 'ゲームタイトルを登録しました');
+      }
+      addButton.addEventListener('click',addTitle);
+      addInput.addEventListener('keydown',event => {
+        if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
+          event.preventDefault(); addTitle();
+        }
+      });
+      addRow.append(addInput,addButton);
+      registry.appendChild(addRow);
+      registry.appendChild(make('p','title-registry-note','登録したタイトルはブラウザに保存され、次回の記事でも選べます。JSONにも含まれます。'));
+      wrapper.appendChild(registry);
+      return wrapper;
+    }
+    function sectionHasValue(s) {
+      if (s.custom === 'images') return state.images.some(img => clean(img.name) || clean(img.description) || clean(img.placement));
+      if (s.custom === 'tags') return Boolean(state.tagPreset || clean(state.extraTags));
+      return s.fields.some(f => fieldValue(f.key));
+    }
+    function renderNav() {
+      const nav = el('sectionNav');
+      nav.replaceChildren();
+      for (const [index,s] of SECTIONS.entries()) {
+        const btn = make('button','nav-step' + (sectionHasValue(s) ? ' has-value' : ''));
+        btn.type = 'button';
+        if (index === currentSection) btn.setAttribute('aria-current','step');
+        btn.appendChild(make('span','step-num',String(index+1).padStart(2,'0')));
+        btn.appendChild(make('span','',s.title));
+        btn.appendChild(make('span','step-check','●'));
+        btn.addEventListener('click', () => setSection(index));
+        nav.appendChild(btn);
+      }
+      const done = SECTIONS.filter(sectionHasValue).length;
+      el('progressText').textContent = `${done} / ${SECTIONS.length}`;
+      el('progressFill').style.width = (100 * done / SECTIONS.length) + '%';
+    }
+    function refreshAfterInput() {
+      persist();
+      renderNav();
+      renderOutput();
+      updateSectionCount();
+    }
+    function updateSectionCount() {
+      const s = SECTIONS[currentSection];
+      let filled = 0;
+      if (s.custom === 'images') filled = state.images.filter(img => clean(img.name) || clean(img.description) || clean(img.placement)).length;
+      else if (s.custom === 'tags') filled = Number(Boolean(state.tagPreset)) + Number(Boolean(clean(state.extraTags)));
+      else filled = s.fields.filter(f => fieldValue(f.key)).length;
+      el('sectionCount').textContent = filled ? `${filled}項目入力済み · 空欄は出力しません` : '空欄は出力されません';
+    }
+    function setSection(index) {
+      currentSection = Math.min(Math.max(index,0),SECTIONS.length-1);
+      renderSection();
+      renderNav();
+      if (window.innerWidth <= 740) el('sectionTitle').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    function renderSection() {
+      const s = SECTIONS[currentSection];
+      el('sectionEyebrow').textContent = `STEP ${String(currentSection+1).padStart(2,'0')} / ${String(SECTIONS.length).padStart(2,'0')}`;
+      el('sectionTitle').textContent = s.title;
+      el('sectionDescription').textContent = s.subtitle;
+      const container = el('sectionContent');
+      container.replaceChildren();
+      if (s.custom === 'images') renderImages(container);
+      else if (s.custom === 'tags') renderTags(container);
+      else {
+        const form = make('div','field-grid');
+        for (const f of s.fields) {
+          if (f.type === 'title-registry') {
+            form.appendChild(renderTitleRegistry());
+            continue;
+          }
+          form.appendChild(createField(f,state.fields[f.key] || '',value => {
+            state.fields[f.key] = value;
+            refreshAfterInput();
+          }));
+        }
+        container.appendChild(form);
+      }
+      el('previousBtn').disabled = currentSection === 0;
+      el('previousBtn').style.visibility = currentSection === 0 ? 'hidden' : 'visible';
+      el('nextBtn').textContent = currentSection === SECTIONS.length-1 ? '最初に戻る ↺' : '次へ →';
+      updateSectionCount();
+    }
+    const PLACEMENTS = [
+      ['','配置場所を選択（任意）'],
+      ['冒頭・タイトルの直後','冒頭・タイトルの直後'],
+      ['進捗紹介のあと','進捗紹介のあと'],
+      ['制作過程の説明のあと','制作過程の説明のあと'],
+      ['比較・変更点の説明のあと','比較・変更点の説明のあと'],
+      ['まとめ・記事末尾','まとめ・記事末尾'],
+      ['文章の流れに合わせておまかせ','文章の流れに合わせておまかせ']
+    ];
+    function renderImages(container) {
+      const info = make('div','hint-box');
+      info.innerHTML = '<strong>画像について</strong><br>ここでは画像の名前と説明を管理します。画像データ自体は依頼書に含まれません。ChatGPTへ依頼する際に画像ファイルを別途添付してください。';
+      info.style.margin = '0 0 17px';
+      container.appendChild(info);
+      const holder = make('div','image-items');
+      if (!state.images.length) {
+        const empty = make('div','empty-images');
+        empty.appendChild(make('div','empty-icon','▧'));
+        empty.appendChild(make('div','', 'まだ画像が登録されていません。'));
+        holder.appendChild(empty);
+      }
+      state.images.forEach((img,index) => {
+        const card = make('div','image-item');
+        const head = make('div','image-head');
+        head.appendChild(make('span','image-index',`画像 ${index+1}`));
+        const remove = make('button','btn btn-small btn-danger','削除');
+        remove.type = 'button';
+        remove.addEventListener('click', () => {
+          state.images.splice(index,1);
+          renderSection(); refreshAfterInput();
+        });
+        head.appendChild(remove);
+        card.appendChild(head);
+        const grid = make('div','field-grid');
+        grid.appendChild(createField({key:`imageName-${index}`,label:'画像のファイル名・呼び名',type:'text',placeholder:'例：完成したメインUI.png'},img.name,value => {
+          state.images[index].name = value; refreshAfterInput();
+        }));
+        grid.appendChild(createField({key:`imageDescription-${index}`,label:'画像の内容・説明',type:'textarea',rows:2,placeholder:'画像に何が写っているか、どんな点を紹介したいか'},img.description,value => {
+          state.images[index].description = value; refreshAfterInput();
+        }));
+        grid.appendChild(createField({key:`imagePlacement-${index}`,label:'希望する挿入位置',type:'select',options:PLACEMENTS.slice(1)},img.placement,value => {
+          state.images[index].placement = value; refreshAfterInput();
+        }));
+        card.appendChild(grid);
+        holder.appendChild(card);
+      });
+      container.appendChild(holder);
+      const controls = make('div','image-controls');
+      const add = make('button','btn btn-primary','＋ 画像の指定を追加');
+      add.type = 'button';
+      add.addEventListener('click',() => {
+        if (state.images.length >= 100) return toast('画像の指定は最大100件までです');
+        state.images.push({name:'',description:'',placement:''});
+        renderSection(); refreshAfterInput();
+      });
+      controls.appendChild(add);
+      const pick = make('button','btn','画像ファイル名をまとめて取得');
+      pick.type = 'button';
+      pick.addEventListener('click', () => el('imageFile').click());
+      controls.appendChild(pick);
+      container.appendChild(controls);
+      const file = make('input','sr-only');
+      file.id = 'imageFile'; file.type = 'file'; file.accept = 'image/*'; file.multiple = true;
+      file.addEventListener('change',() => {
+        const remaining = Math.max(0,100-state.images.length);
+        const files = Array.from(file.files || []).slice(0,remaining);
+        for (const selected of files) state.images.push({name:selected.name,description:'',placement:''});
+        if (files.length) { renderSection(); refreshAfterInput(); toast(`${files.length}件の画像名を追加しました（画像本体は保存されません）`); }
+        if (!remaining) toast('画像の指定は最大100件までです');
+      });
+      container.appendChild(file);
+      container.appendChild(make('p','notice-inline','※ 読み込むのはファイル名のみです。画像はアップロード・保存・送信されません。'));
+    }
+    function parseCustomTags() {
+      return clean(state.extraTags).split(/[\s,，、]+/u).filter(Boolean).map(t => t.startsWith('#') ? t : '#' + t);
+    }
+    function getTags() {
+      const primary = TAG_PRESETS[state.tagPreset]?.tags || [];
+      return [...new Set([...primary,...parseCustomTags()])];
+    }
+    function renderTags(container) {
+      const grid = make('div','field-grid');
+      const opts = Object.entries(TAG_PRESETS).map(([key,preset]) => [key,preset.label]);
+      grid.appendChild(createField({key:'tagPreset',label:'タグの組み合わせ',type:'select',options:opts},state.tagPreset,value => {
+        state.tagPreset = value; refreshAfterInput(); updateTagPreview();
+      }));
+      grid.appendChild(createField({key:'extraTags',label:'追加したいタグ（任意）',type:'textarea',rows:3,placeholder:'例：#開発日記 #ゲーム好きと繋がりたい',tip:'スペース・カンマ・改行で区切って入力。#がなくても自動で付与します。'},state.extraTags,value => {
+        state.extraTags = value; refreshAfterInput(); updateTagPreview();
+      }));
+      container.appendChild(grid);
+      const preview = make('div','tag-preview');
+      preview.appendChild(make('strong','', '選択中のハッシュタグ'));
+      const tags = make('div','tag-pills'); tags.id = 'tagPills';
+      preview.appendChild(tags);
+      const none = make('p','tag-none','タグはまだ選択されていません。'); none.id = 'tagNone';
+      preview.appendChild(none);
+      container.appendChild(preview);
+      updateTagPreview();
+      container.appendChild(make('p','notice-inline','※ ハッシュタグを選ばなかった場合は、依頼書にもタグの指定を追加しません。'));
+    }
+    function updateTagPreview() {
+      const holder = el('tagPills');
+      if (!holder) return;
+      holder.replaceChildren(...getTags().map(tag => make('span','tag-pill',tag)));
+      el('tagNone').hidden = getTags().length > 0;
+    }
+    function formatGroup(lines, title, keys) {
+      const items = [];
+      for (const key of keys) {
+        const f = FIELD_MAP.get(key);
+        const value = selectedLabel(key);
+        if (f && value) addLine(items,f.label,value);
+      }
+      if (items.length) lines.push(`【${title}】`,...items,'');
+    }
+    function buildPrompt() {
+      const lines = [
+        '【依頼内容】',
+        '以下の「提供情報」をもとに、noteに投稿するゲーム制作関連の記事を代筆してください。',
+        '箇条書きのメモは、読者が楽しく読める自然な記事の文章に整えてください。',
+        '',
+        '【納品形式・必須条件】',
+        '1. 「こんにちは、遠廼まちです！」という一文から本文を始めてください。',
+        '2. noteにそのまま投稿できる完成形として、魅力的な記事タイトル・本文・必要に応じた見出し・画像挿入位置・指定ハッシュタグをまとめて出力してください。',
+        '3. 提供された情報だけを事実として扱い、制作内容・体験談・期間・予定・数値・公開URLなどを想像で補わないでください。情報がない話題は無理に書かず、省略してください。',
+        '4. 記事は読み物として自然な流れにしてください。提出メモをそのまま羅列せず、親しみやすい文体で読みやすく構成してください。',
+        '5. 画像を指定した場合は、記事の流れに合わせて「【画像1：ファイル名／挿入位置】」のように配置指示を本文中に入れてください。画像を指定していない場合は、画像の挿入指示を作らないでください。',
+        '6. ハッシュタグが指定されている場合は、指定されたタグを記事末尾にまとめてください。指定がない場合はタグを推測して追加しないでください。',
+        '7. 執筆の説明や作業メモは付けず、完成したnote記事のみを出力してください。',
+        '',
+        '【構成上の注意】',
+        'ゲーム制作日記では、単なる「〇〇を実装しました」という報告だけで終わらせず、材料がそろっている範囲で「制作した理由 → 制作過程 → 苦労や発見 → 完成したもの → 次回予告」という流れを意識してください。',
+        'ただし、未提供の工程や感想は創作しないでください。記事の種類に合う自然な構成を優先してください。',
+        ''
+      ];
+      formatGroup(lines,'基本情報',['gameTitle','articleTopic','articleType','mainMessage']);
+      formatGroup(lines,'今回の制作進捗',['completed','changed','features','completion']);
+      formatGroup(lines,'制作過程・開発の裏話',['motivation','commitment','troubles','solutions','episodes','workTime']);
+      formatGroup(lines,'技術・制作素材の情報',['tools','systemDetail','artProcess','scenarioProcess','aiScope','beforeAfter']);
+      formatGroup(lines,'公開情報と記事の希望',['upcoming','releaseInfo','links','readerQuestion','audience','tone','length','spoilers','headings']);
+      const images = state.images.map((img,i) => ({...img,i})).filter(img => clean(img.name) || clean(img.description) || clean(img.placement));
+      if (images.length) {
+        lines.push('【掲載画像と挿入位置】');
+        for (const image of images) {
+          lines.push(`・画像${image.i+1}`);
+          if (clean(image.name)) lines.push('  ファイル名・呼び名：'+clean(image.name));
+          if (clean(image.description)) lines.push('  内容・伝えたいこと：'+clean(image.description));
+          if (clean(image.placement)) lines.push('  希望する配置：'+clean(image.placement));
+        }
+        lines.push('※画像ファイル本体は、この依頼書と一緒に別途添付します。','');
+      }
+      const tags = getTags();
+      if (tags.length) {
+        lines.push('【ハッシュタグ指定】');
+        if (TAG_PRESETS[state.tagPreset]) lines.push('・タグの組み合わせ：'+TAG_PRESETS[state.tagPreset].label);
+        lines.push(tags.join(' '),'');
+      }
+      formatGroup(lines,'その他の指定',['mustInclude','dontInclude','otherInstructions']);
+      return lines.join('\n').trim()+'\n';
+    }
+    function renderOutput() {
+      const output = buildPrompt();
+      const area = el('outputText');
+      const oldScroll = area.scrollTop;
+      area.value = output;
+      area.scrollTop = oldScroll;
+      el('outputStats').textContent = `${Array.from(output).length.toLocaleString('ja-JP')}文字 ・ ${SECTIONS.filter(sectionHasValue).length}セクション入力済み`;
+    }
+    function downloadFile(filename, content, mime) {
+      const blob = new Blob([content],{type:mime});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url),1000);
+    }
+    async function copyPrompt() {
+      const text = buildPrompt();
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error('unsupported');
+        await navigator.clipboard.writeText(text);
+        toast('代筆依頼書をコピーしました');
+      } catch {
+        const area = el('outputText');
+        area.focus(); area.select();
+        try {
+          if (!document.execCommand('copy')) throw new Error('failed');
+          toast('代筆依頼書をコピーしました');
+        } catch {
+          toast('自動コピーできません。プレビューを選択してコピーしてください。');
+        }
+      }
+    }
+    function safeFilename() {
+      return clean(state.fields.gameTitle).replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,35) || 'ゲーム制作';
+    }
+    el('previousBtn').addEventListener('click',() => setSection(currentSection-1));
+    el('nextBtn').addEventListener('click',() => setSection(currentSection === SECTIONS.length-1 ? 0 : currentSection+1));
+    el('copyBtn').addEventListener('click',copyPrompt);
+    el('downloadBtn').addEventListener('click',() => {
+      downloadFile(`${safeFilename()}_note代筆依頼書.txt`,buildPrompt(),'text/plain;charset=utf-8');
+      toast('TXTファイルを保存しました');
+    });
+    el('exportBtn').addEventListener('click',() => {
+      const snapshot = {app:'choco-note-request-studio',version:2,savedAt:new Date().toISOString(),...state};
+      downloadFile(`${safeFilename()}_記事依頼データ.json`,JSON.stringify(snapshot,null,2),'application/json;charset=utf-8');
+      toast('JSONデータを保存しました');
+    });
+    el('importBtn').addEventListener('click',() => el('importFile').click());
+    el('importFile').addEventListener('change',async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        if (file.size > 3*1024*1024) throw new Error('ファイルが大きすぎます');
+        const parsed = JSON.parse(await file.text());
+        if (parsed.app && parsed.app !== 'choco-note-request-studio') throw new Error('対応していないデータです');
+        const imported = normalizeState(parsed);
+        // JSON読み込み時も、このブラウザに登録したタイトル一覧は消さずに統合します。
+        imported.gameTitles = [...new Set([...state.gameTitles,...imported.gameTitles])].slice(0,100);
+        if (imported.fields.gameTitle && !imported.gameTitles.includes(imported.fields.gameTitle)) imported.fields.gameTitle = '';
+        state = imported;
+        currentSection = 0;
+        renderSection(); refreshAfterInput();
+        toast('保存データを読み込みました');
+      } catch(error) { toast('読み込めませんでした：'+error.message); }
+      event.target.value = '';
+    });
+    el('resetBtn').addEventListener('click',() => {
+      if (!confirm('記事の入力内容をクリアしますか？\n登録済みのゲームタイトルと現在選択中のタイトルは残ります。')) return;
+      const savedTitles = [...state.gameTitles];
+      const selectedTitle = state.fields.gameTitle;
+      state = defaultState();
+      state.gameTitles = savedTitles;
+      if (selectedTitle) state.fields.gameTitle = selectedTitle;
+      currentSection = 0;
+      renderSection(); refreshAfterInput(); toast('記事入力をクリアしました（登録済みタイトルは保持）');
+    });
+    renderSection(); renderNav(); renderOutput();
+  </script>
+</body>
+</html>
