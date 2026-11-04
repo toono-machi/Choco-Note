@@ -253,7 +253,7 @@
         </div>
         <span class="live-dot">● 自動更新</span>
       </div>
-      <p class="preview-lead">記入した内容だけを反映。固定の執筆条件も自動で追加します。</p>
+      <p class="preview-lead">記入した内容だけを反映。固定の執筆条件と、記事の最後に載せるHP・Patreonのリンクは必ず追加します。</p>
       <div class="paper">
         <div class="paper-top" aria-hidden="true"></div>
         <textarea id="outputText" class="output" aria-label="生成された代筆依頼書" readonly spellcheck="false"></textarea>
@@ -344,7 +344,7 @@
         fields:[
           {key:'upcoming',label:'今後の制作予定・次回予告',type:'textarea',placeholder:'次に実装するもの、制作の目標など',rows:3},
           {key:'releaseInfo',label:'公開・配布・イベント情報',type:'textarea',placeholder:'公開予定、体験版の告知、アップデート情報など',rows:3},
-          {key:'links',label:'記事に載せたいリンク',type:'textarea',placeholder:'公式サイト、ゲーム配布ページ、過去の記事など（1行ずつ）',rows:3},
+          {key:'links',label:'記事に追加で載せたいリンク（任意）',type:'textarea',placeholder:'ゲーム配布ページ、過去の記事など（1行ずつ）。HPとPatreonは自動で最下部に追加されます。',rows:3,tip:'HP・Patreonの固定リンク2件は、この欄が空でも必ず記事の最下部に掲載されます。'},
           {key:'readerQuestion',label:'読者への質問・呼びかけ',type:'textarea',placeholder:'感想の募集、意見を聞きたい内容など',rows:3},
           {key:'audience',label:'想定読者',type:'text',placeholder:'例：ノベルゲーム好き、個人開発者'},
           {key:'tone',label:'文章の雰囲気',type:'select',options:[['friendly','親しみやすい制作日記'],['humorous','ユーモラス・明るめ'],['technical','技術寄り・丁寧'],['calm','落ち着いた読み物'],['exciting','ワクワクする紹介文']]},
@@ -733,8 +733,10 @@
         '3. 提供された情報だけを事実として扱い、制作内容・体験談・期間・予定・数値・公開URLなどを想像で補わないでください。情報がない話題は無理に書かず、省略してください。',
         '4. 記事は読み物として自然な流れにしてください。提出メモをそのまま羅列せず、親しみやすい文体で読みやすく構成してください。',
         '5. 画像を指定した場合は、記事の流れに合わせて「【画像1：ファイル名／挿入位置】」のように配置指示を本文中に入れてください。画像を指定していない場合は、画像の挿入指示を作らないでください。',
-        '6. ハッシュタグが指定されている場合は、指定されたタグを記事末尾にまとめてください。指定がない場合はタグを推測して追加しないでください。',
+        '6. ハッシュタグが指定されている場合は、記事の終盤に指定タグをまとめ、固定リンク2行より前に配置してください。指定がない場合はタグを推測して追加しないでください。',
         '7. 執筆の説明や作業メモは付けず、完成したnote記事のみを出力してください。',
+        '8. 記事の末尾には、依頼書の最後に示す「記事最下部の固定リンク」2行を必ずそのまま記載してください。記事テーマ・入力の有無・ハッシュタグの有無に関係なく省略禁止です。',
+        '9. 本文の締め、任意の追加リンク、画像挿入指示、ハッシュタグ等はすべて固定リンクより前に配置してください。PatreonのURLの後には文章・見出し・ハッシュタグなど何も付けないでください。',
         '',
         '【構成上の注意】',
         'ゲーム制作日記では、単なる「〇〇を実装しました」という報告だけで終わらせず、材料がそろっている範囲で「制作した理由 → 制作過程 → 苦労や発見 → 完成したもの → 次回予告」という流れを意識してください。',
@@ -764,6 +766,12 @@
         lines.push(tags.join(' '),'');
       }
       formatGroup(lines,'その他の指定',['mustInclude','dontInclude','otherInstructions']);
+      lines.push(
+        '【記事最下部の固定リンク（必須・変更しない）】',
+        '完成したnote記事の一番最後に、以下の2行をこの順番で、そのまま掲載してください。これらの後ろには一切何も追加しないでください。',
+        'HP：https://toono-machi.github.io/GISHODO/',
+        'Patreon：https://www.patreon.com/cw/GISHODO'
+      );
       return lines.join('\n').trim()+'\n';
     }
     function renderOutput() {
