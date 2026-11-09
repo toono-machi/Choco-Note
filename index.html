@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#6b493e">
-  <meta name="description" content="ゲーム制作の進捗メモから、ChatGPTに渡すnote記事代筆依頼書を作成するブラウザツール。">
-  <title>Choco Note｜note記事 代筆依頼書メーカー</title>
+  <meta name="description" content="note記事の代筆依頼書やイラスト線画清書用のAI指示書を作成するブラウザツール。">
+  <title>Choco Note｜創作指示書メーカー</title>
   <style>
     :root {
       color-scheme: light;
@@ -126,7 +126,7 @@
     .title-row > .btn { flex-shrink: 0; }
     .title-registry-note { color: var(--muted); font-size: 11px; margin: 0; }
     .title-divider { border: 0; border-top: 1px solid #e7d9cd; margin: 1px 0; }
-    .template-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 6px; margin-bottom: 25px; border-radius: 14px; background: #f4ece3; border: 1px solid #e6d6c6; }
+    .template-switcher { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px; padding: 6px; margin-bottom: 25px; border-radius: 14px; background: #f4ece3; border: 1px solid #e6d6c6; }
     .template-option { min-width: 0; padding: 12px 9px; border-radius: 10px; background: transparent; border: 1px solid transparent; color: #7a665c; font-size: 12px; font-weight: 750; line-height: 1.5; }
     .template-option:hover { background: #fffaf4; }
     .template-option[aria-pressed="true"] { background: #fffefa; color: #5b3a2d; border-color: #dbc1af; box-shadow: 0 3px 12px rgba(95,56,36,.08); }
@@ -135,6 +135,10 @@
     .pose-card-subtitle { font-size: 11px; font-weight: 800; color: #9b7460; letter-spacing: .05em; margin: 4px 0 0; }
     .pose-block-title { border-bottom: 1px solid #e5d7c9; padding-bottom: 5px; color: #755446; font-size: 12px; font-weight: 800; margin: 3px 0 0; }
     .pose-card-list { display: grid; gap: 17px; }
+    .line-size-focus { border: 2px solid #c89570; background: #fffbf5; border-radius: 14px; padding: 15px; color: #6d4536; font-weight: 750; font-size: 13px; }
+    .line-size-focus small { display: block; color: #877669; margin-top: 4px; font-size: 11px; font-weight: 500; }
+    .line-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    @media (max-width: 420px) { .line-duo { grid-template-columns: 1fr; } }
     .price-lock { background: #f7efe5; border: 1px solid #ddc7b5; padding: 12px 15px; border-radius: 12px; font-weight: 800; color: #6a4738; font-size: 13px; }
     .price-lock small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
     .policy-preview { border: 1px solid #dfcfbf; background: #fffaf4; border-radius: 12px; padding: 15px; font-size: 12px; white-space: pre-line; color: #705449; line-height: 1.9; }
@@ -223,7 +227,7 @@
         <div class="brand-mark" aria-hidden="true">✎</div>
         <div>
           <div class="brand-title">Choco Note</div>
-          <span class="brand-sub">NOTE ARTICLE REQUEST STUDIO</span>
+          <span class="brand-sub">CREATIVE REQUEST STUDIO</span>
         </div>
       </div>
       <div class="header-actions">
@@ -250,6 +254,7 @@
       <div class="template-switcher" role="group" aria-label="記事テンプレートの切り替え">
         <button type="button" class="template-option" id="modeGame" data-mode="game" aria-pressed="true">🎮 ゲーム制作の記事</button>
         <button type="button" class="template-option" id="modePose" data-mode="pose" aria-pressed="false">✎ 有料ポーズ素体集（300円）</button>
+        <button type="button" class="template-option" id="modeLine" data-mode="line" aria-pressed="false">✦ イラスト線画生成用</button>
       </div>
       <span class="eyebrow" id="sectionEyebrow">STEP 01 / 08</span>
       <h1 id="sectionTitle">記事の基本情報</h1>
@@ -268,7 +273,7 @@
       <div class="preview-title">
         <div>
           <span class="eyebrow">LIVE PREVIEW</span>
-          <h2>GPTへの代筆依頼書</h2>
+          <h2 id="previewHeading">GPTへの代筆依頼書</h2>
         </div>
         <span class="live-dot">● 自動更新</span>
       </div>
@@ -439,14 +444,69 @@
       }
     ];
     const POSE_FIELD_MAP = new Map(POSE_SECTIONS.flatMap(s => (s.fields || []).map(f => [f.key,f])));
+    const LINE_SECTIONS = [
+      {
+        id:'lineReferences',title:'元ラフ・モデルの指定',subtitle:'添付するラフの構図や、清書で残したいものを指定します。画像自体はChatGPTに別途添付してください。',
+        fields:[
+          {key:'lineModel',label:'作画モデル',type:'select',options:[['adult','成人の作画練習用デッサンモデル'],['female','成人女性のデッサンモデル'],['male','成人男性のデッサンモデル'],['mixed','男女のモデルが混在']]},
+          {key:'lineMainPose',label:'ポーズ・構図の補足（任意）',type:'textarea',rows:4,placeholder:'例：手前に拳を突き出した遠近感のあるポーズ／俯瞰の角度を維持'},
+          {key:'lineKeepObjects',label:'残したい衣服・靴・家具・小物（任意）',type:'textarea',rows:3,placeholder:'例：参考ラフにあるローファー、パイプ椅子。未記入なら追加しない'},
+          {key:'lineStrokeRef',label:'線の細さ・清書スタイルの参考画像（任意）',type:'text',placeholder:'例：2枚目の画像（細い線の参考）',tip:'ラフと線幅の参考資料が別の場合のみ指定。架空の参考画像は作りません。'}
+        ]
+      },
+      {
+        id:'lineImageSpec',title:'画像仕様・線画スタイル',subtitle:'初期値は指定された2150 × 3035 px・PNG・白地黒線3pxです。変更した値を出力時の絶対条件にします。',
+        fields:[
+          {key:'lineWidth',label:'画像の横幅（px）',type:'number',placeholder:'2150'},
+          {key:'lineHeight',label:'画像の縦幅（px）',type:'number',placeholder:'3035'},
+          {key:'lineFormat',label:'ファイル形式',type:'select',options:[['png','PNG'],['webp','WebP'],['jpeg','JPEG']]},
+          {key:'lineBackground',label:'背景色',type:'text',placeholder:'#FFFFFF'},
+          {key:'lineInk',label:'線画の色',type:'text',placeholder:'#000000'},
+          {key:'lineStroke',label:'線の太さ（px・前後）',type:'number',placeholder:'3'},
+          {key:'lineStyle',label:'画風',type:'text',placeholder:'漫画・アニメ向けのシンプルな人体デッサン資料'},
+          {key:'lineExpression',label:'表現方法',type:'text',placeholder:'モノクロの輪郭線のみ'},
+          {key:'lineComposition',label:'画像構成',type:'select',options:[['single','1枚につき1ポーズ'],['several','複数ポーズを1枚に配置（特別指定）']]},
+          {key:'lineDecorations',label:'文字・装飾・背景イラスト',type:'select',options:[['none','すべてなし'],['specified','別途指定したもののみ使用']]}
+        ]
+      },
+      {
+        id:'lineFineTune',title:'清書・人体表現の補足',subtitle:'元画像の構図を最優先し、滑らかで細い線に整えます。必要な場合だけ追記します。',
+        fields:[
+          {key:'lineFace',label:'頭部の描写',type:'select',options:[['cross','顔の中心線＋目線の十字補助線のみ（顔パーツなし）'],['blank','補助線なし・顔パーツなし'],['rough','ラフで指定したガイド線を維持']]},
+          {key:'lineSuit',label:'デッサンモデルの表現',type:'select',options:[['white','白い全身タイツを着用した成人の作画練習モデル'],['simple','装飾のないシンプルな作画用デッサンモデル']]},
+          {key:'lineBreast',label:'女性モデルの胸部の表現',type:'select',options:[['natural','元ラフを基準に自然な範囲で調整（強調しない）'],['as-is','元ラフの体型と輪郭を優先して変更を最小限にする']]},
+          {key:'lineAdditional',label:'追加の清書希望（任意）',type:'textarea',rows:4,placeholder:'例：足元のローファーの形を残す／肩まわりの関節を自然につなぐ'},
+          {key:'lineDoNot',label:'追加で禁止する表現（任意）',type:'textarea',rows:3,placeholder:'例：服のしわを描き込まない／手の角度を変えない'}
+        ]
+      },
+      {
+        id:'lineBatch',title:'画像枚数と各ポーズ',subtitle:'添付画像1枚ごとに1枚ずつ独立して出力します。ファイル名・各画像固有の指定も設定できます。',
+        fields:[
+          {key:'lineCount',label:'清書するラフの枚数',type:'number',placeholder:'1',tip:'1〜20枚。指定枚数と同じ数のファイルを納品するように依頼します。'},
+          {key:'lineFilePrefix',label:'出力ファイル名の接頭辞',type:'text',placeholder:'pose_',tip:'初期値「pose_」なら pose_001.png、pose_002.png…になります。'}
+        ]
+      },
+      {id:'lineImageDetails',title:'画像ごとの補足',subtitle:'画像1、画像2…の順番に、元ラフのファイル名や特に残したい構図を設定します。',custom:'line-images'},
+      {
+        id:'lineDelivery',title:'納品・最終確認',subtitle:'指定解像度の厳守、1枚ずつの独立納品、生成後のピクセル寸法検査を必須にします。',
+        fields:[
+          {key:'lineZip',label:'ZIPへのまとめ方',type:'select',options:[['when-multiple','複数枚の場合に個別画像＋ZIP'],['always','個別画像＋ZIP（1枚でも作成）'],['none','個別画像のみ']]},
+          {key:'lineQuality',label:'サイズが一致しない場合の処理',type:'select',options:[['verify','画像処理で正確なpx寸法に修正して再検証'],['regenerate','指定サイズに合わせて再生成・再検証']]},
+          {key:'lineFinalNotes',label:'その他の納品指示（任意）',type:'textarea',rows:4,placeholder:'例：縦横の余白をやや多めに／左右反転しない／元のカメラ位置を優先'}
+        ]
+      }
+    ];
+    const LINE_FIELD_MAP = new Map(LINE_SECTIONS.flatMap(section => (section.fields || []).map(field => [field.key,field])));
+    const defaultLineImage = () => ({source:'', notes:''});
+    const LINE_DEFAULTS = Object.freeze({lineWidth:'2150',lineHeight:'3035',lineFormat:'png',lineBackground:'#FFFFFF',lineInk:'#000000',lineStroke:'3',lineStyle:'漫画・アニメ向けのシンプルな人体デッサン資料',lineExpression:'モノクロの輪郭線のみ',lineComposition:'single',lineDecorations:'none',lineModel:'adult',lineFace:'cross',lineSuit:'white',lineBreast:'natural',lineCount:'1',lineFilePrefix:'pose_',lineZip:'when-multiple',lineQuality:'verify'});
     const defaultPose = () => ({title:'',category:'',point:'',roughImage:'',cleanImage:'',pngName:'',downloadUrl:'',actualPrompt:''});
-    const activeSections = () => state.articleMode === 'pose' ? POSE_SECTIONS : SECTIONS;
+    const activeSections = () => state.articleMode === 'line' ? LINE_SECTIONS : (state.articleMode === 'pose' ? POSE_SECTIONS : SECTIONS);
     const poseCount = () => [3,4,5].includes(Number(state.poseFields.poseCount)) ? Number(state.poseFields.poseCount) : 3;
     const FIELD_MAP = new Map(SECTIONS.flatMap(s => (s.fields || []).map(f => [f.key,f])));
-    const SECTION_NAMES = Object.fromEntries([...SECTIONS,...POSE_SECTIONS].map(s => [s.id,s.title]));
+    const SECTION_NAMES = Object.fromEntries([...SECTIONS,...POSE_SECTIONS,...LINE_SECTIONS].map(s => [s.id,s.title]));
     const defaultState = () => ({fields:{},images:[],tagPreset:'',extraTags:'',gameTitles:[],
       articleMode:'game',poseFields:{poseCount:'3',poseTitleOptions:'three',poseTitleStyle:'balanced'},
-      poses:Array.from({length:3},defaultPose),poseTagPreset:'pose',poseExtraTags:''});
+      poses:Array.from({length:3},defaultPose),poseTagPreset:'pose',poseExtraTags:'',lineFields:{...LINE_DEFAULTS},lineImages:Array.from({length:1},defaultLineImage)});
     let state = loadState();
     let currentSection = 0;
     let toastTimeout;
@@ -454,9 +514,12 @@
     const el = id => document.getElementById(id);
     const clean = value => String(value ?? '').trim();
     const addLine = (lines, label, value) => { if (clean(value)) lines.push('・' + label + '：' + clean(value)); };
-    const fieldValue = key => clean((POSE_FIELD_MAP.has(key) ? state.poseFields : state.fields)[key]);
+    const lineCountFrom = fields => { const n = Number(fields.lineCount); return Number.isInteger(n) ? Math.max(1,Math.min(20,n)) : 1; };
+    const lineCount = () => lineCountFrom(state.lineFields);
+    const fieldStore = key => LINE_FIELD_MAP.has(key) ? state.lineFields : (POSE_FIELD_MAP.has(key) ? state.poseFields : state.fields);
+    const fieldValue = key => clean(fieldStore(key)[key]);
     const selectedLabel = key => {
-      const f = FIELD_MAP.get(key) || POSE_FIELD_MAP.get(key);
+      const f = FIELD_MAP.get(key) || POSE_FIELD_MAP.get(key) || LINE_FIELD_MAP.get(key);
       const val = fieldValue(key);
       if (!f || !val || f.type !== 'select') return val;
       return f.options.find(option => option[0] === val)?.[1] || '';
@@ -490,7 +553,7 @@
       }));
       if (typeof data.tagPreset === 'string' && TAG_PRESETS[data.tagPreset]) result.tagPreset = data.tagPreset;
       if (typeof data.extraTags === 'string') result.extraTags = data.extraTags.slice(0,5000);
-      if (data.articleMode === 'pose') result.articleMode = 'pose';
+      if (data.articleMode === 'pose' || data.articleMode === 'line') result.articleMode = data.articleMode;
       if (data.poseFields && typeof data.poseFields === 'object' && !Array.isArray(data.poseFields)) {
         for (const key of POSE_FIELD_MAP.keys()) {
           if (typeof data.poseFields[key] === 'string') result.poseFields[key] = data.poseFields[key].slice(0,100000);
@@ -507,6 +570,22 @@
       while (result.poses.length < 5) result.poses.push(defaultPose());
       if (typeof data.poseTagPreset === 'string' && TAG_PRESETS[data.poseTagPreset]) result.poseTagPreset = data.poseTagPreset;
       if (typeof data.poseExtraTags === 'string') result.poseExtraTags = data.poseExtraTags.slice(0,5000);
+      if (data.lineFields && typeof data.lineFields === 'object' && !Array.isArray(data.lineFields)) {
+        for (const key of LINE_FIELD_MAP.keys()) {
+          if (typeof data.lineFields[key] === 'string') result.lineFields[key] = data.lineFields[key].slice(0,100000);
+        }
+      }
+      for (const key of ['lineWidth','lineHeight','lineCount']) {
+        const val = Number(result.lineFields[key]);
+        if (!Number.isInteger(val) || val < 1 || val > (key === 'lineCount' ? 20 : 30000)) result.lineFields[key] = LINE_DEFAULTS[key];
+      }
+      const stroke = Number(result.lineFields.lineStroke);
+      if (!Number.isFinite(stroke) || stroke <= 0 || stroke > 200) result.lineFields.lineStroke = LINE_DEFAULTS.lineStroke;
+      if (Array.isArray(data.lineImages)) result.lineImages = data.lineImages.slice(0,20).map(item => ({
+        source: typeof item?.source === 'string' ? item.source.slice(0,500) : '',
+        notes: typeof item?.notes === 'string' ? item.notes.slice(0,10000) : ''
+      }));
+      while (result.lineImages.length < lineCountFrom(result.lineFields)) result.lineImages.push(defaultLineImage());
       if (Array.isArray(data.gameTitles)) {
         for (const item of data.gameTitles.slice(0,100)) {
           const title = typeof item === 'string' ? item.trim().slice(0,120) : '';
@@ -553,13 +632,23 @@
       } else {
         input = make('input','input');
         input.type = def.type === 'number' ? 'number' : 'text';
-        if (def.type === 'number') { input.min = '1'; input.max = '9999'; input.step = '1'; }
+        if (def.type === 'number') { input.min = def.key === 'lineStroke' ? '0.1' : '1'; input.max = def.key === 'lineCount' ? '20' : def.key.startsWith('line') ? '30000' : '9999'; input.step = def.key === 'lineStroke' ? '0.1' : '1'; }
         input.placeholder = def.placeholder || '';
       }
       input.id = id;
       input.value = value || '';
       input.autocomplete = 'off';
       input.addEventListener(def.type === 'select' ? 'change' : 'input', () => onInput(input.value));
+      if (def.type === 'number' && def.key.startsWith('line')) {
+        input.addEventListener('blur', () => {
+          const number = Number(input.value);
+          const min = def.key === 'lineStroke' ? 0.1 : 1;
+          const max = def.key === 'lineCount' ? 20 : def.key === 'lineStroke' ? 200 : 30000;
+          let value = !input.value.trim() || !Number.isFinite(number) ? (LINE_DEFAULTS[def.key] || '1') : String(Math.max(min,Math.min(max,number)));
+          if (def.key !== 'lineStroke') value = String(Math.floor(Number(value)));
+          if (input.value !== value) { input.value = value; onInput(value); toast('数値を有効な範囲に調整しました'); }
+        });
+      }
       wrapper.appendChild(input);
       return wrapper;
     }
@@ -638,6 +727,7 @@
     function sectionHasValue(s) {
       if (s.custom === 'images') return state.images.some(img => clean(img.name) || clean(img.description) || clean(img.placement));
       if (s.custom === 'poses') return state.poses.slice(0,poseCount()).some(p => Object.values(p).some(clean));
+      if (s.custom === 'line-images') return state.lineImages.slice(0,lineCount()).some(p => Object.values(p).some(clean));
       if (s.custom === 'tags') return state.articleMode === 'pose'
         ? Boolean(state.poseTagPreset || clean(state.poseExtraTags))
         : Boolean(state.tagPreset || clean(state.extraTags));
@@ -666,12 +756,14 @@
       renderNav();
       renderOutput();
       updateSectionCount();
+      if (el('lineSizeNotice')) el('lineSizeNotice').firstChild.textContent = `【画像の幅・高さは厳守】 現在の指定：${state.lineFields.lineWidth || '未入力'} × ${state.lineFields.lineHeight || '未入力'} px`;
     }
     function updateSectionCount() {
       const s = activeSections()[currentSection];
       let filled = 0;
       if (s.custom === 'images') filled = state.images.filter(img => clean(img.name) || clean(img.description) || clean(img.placement)).length;
       else if (s.custom === 'poses') filled = state.poses.slice(0,poseCount()).filter(p => Object.values(p).some(clean)).length;
+      else if (s.custom === 'line-images') filled = state.lineImages.slice(0,lineCount()).filter(p => Object.values(p).some(clean)).length;
       else if (s.custom === 'tags') filled = state.articleMode === 'pose'
         ? Number(Boolean(state.poseTagPreset)) + Number(Boolean(clean(state.poseExtraTags)))
         : Number(Boolean(state.tagPreset)) + Number(Boolean(clean(state.extraTags)));
@@ -693,6 +785,7 @@
       container.replaceChildren();
       if (s.custom === 'images') renderImages(container);
       else if (s.custom === 'poses') renderPoses(container);
+      else if (s.custom === 'line-images') renderLineImages(container);
       else if (s.custom === 'tags') renderTags(container);
       else {
         const form = make('div','field-grid');
@@ -702,7 +795,7 @@
             continue;
           }
           form.appendChild(createField(f,fieldValue(f.key),value => {
-            const store = POSE_FIELD_MAP.has(f.key) ? state.poseFields : state.fields;
+            const store = fieldStore(f.key);
             store[f.key] = value;
             refreshAfterInput();
           }));
@@ -711,6 +804,16 @@
           }
         }
         container.appendChild(form);
+      }
+      if (s.id === 'lineImageSpec') {
+        const warning = make('div','line-size-focus',`【画像の幅・高さは厳守】 現在の指定：${state.lineFields.lineWidth} × ${state.lineFields.lineHeight} px`);
+        warning.id = 'lineSizeNotice';
+        warning.appendChild(make('small','', 'ここで変更した横幅・縦幅が優先されます。生成AIがこの解像度で直接出力できない場合は、正確なピクセル寸法に仕上げて検査するよう指示書へ自動記載します。'));
+        warning.style.marginBottom='16px';
+        container.prepend(warning);
+      }
+      if (s.id === 'lineBatch') {
+        container.appendChild(make('p','notice-inline','※ 画像枚数を変更すると「画像ごとの補足」の欄が増減します。各画像は番号順に個別納品します。'));
       }
       if (s.id === 'poseBasic') {
         container.prepend(make('div','price-lock','販売価格：300円（固定）'));
@@ -724,6 +827,25 @@
       el('previousBtn').style.visibility = currentSection === 0 ? 'hidden' : 'visible';
       el('nextBtn').textContent = currentSection === activeSections().length-1 ? '最初に戻る ↺' : '次へ →';
       updateSectionCount();
+    }
+    function renderLineImages(container) {
+      const notice = make('div','pose-workflow','画像は添付順に1枚ずつ清書します。例：画像1→pose_001.png、画像2→pose_002.png。画像自体はこのアプリに保存しません。');
+      notice.style.marginBottom = '17px';
+      container.appendChild(notice);
+      const list = make('div','pose-card-list');
+      while (state.lineImages.length < lineCount()) state.lineImages.push(defaultLineImage());
+      state.lineImages.slice(0,lineCount()).forEach((item,index) => {
+        const card = make('div','pose-card');
+        card.appendChild(make('h3','pose-card-title',`添付画像 ${index+1} / ${lineCount()}`));
+        card.appendChild(createField({key:`line-${index}-source`,label:'元ラフ画像のファイル名（任意）',type:'text',placeholder:`例：rough_${String(index+1).padStart(3,'0')}.png`},item.source,value=>{
+          state.lineImages[index].source = value; refreshAfterInput();
+        }));
+        card.appendChild(createField({key:`line-${index}-notes`,label:'この画像で特に残したいポーズ・角度・部位',type:'textarea',rows:3,placeholder:'例：拳の位置とパースを変えない／足先の角度を維持'},item.notes,value=>{
+          state.lineImages[index].notes = value; refreshAfterInput();
+        }));
+        list.appendChild(card);
+      });
+      container.appendChild(list);
     }
     function renderPoses(container) {
       const intro = make('div','pose-workflow','制作工程（固定）：私が手描きラフを描く → AIが線画を清書する → 私が微調整して仕上げる。無料エリアではラフと清書の比較、有料エリアでは透過PNGと実際のプロンプトを公開します。');
@@ -876,13 +998,14 @@
     function formatGroup(lines, title, keys) {
       const items = [];
       for (const key of keys) {
-        const f = FIELD_MAP.get(key) || POSE_FIELD_MAP.get(key);
+        const f = FIELD_MAP.get(key) || POSE_FIELD_MAP.get(key) || LINE_FIELD_MAP.get(key);
         const value = selectedLabel(key);
         if (f && value) addLine(items,f.label,value);
       }
       if (items.length) lines.push(`【${title}】`,...items,'');
     }
     function buildPrompt() {
+      if (state.articleMode === 'line') return buildLinePrompt();
       if (state.articleMode === 'pose') return buildPosePrompt();
       const lines = [
         '【依頼内容】',
@@ -1035,6 +1158,118 @@
       );
       return lines.join('\n').trim()+'\n';
     }
+    function buildLinePrompt() {
+      const count = lineCount();
+      const requestedWidth = Number(fieldValue('lineWidth'));
+      const requestedHeight = Number(fieldValue('lineHeight'));
+      const width = Number.isInteger(requestedWidth) && requestedWidth >= 1 && requestedWidth <= 30000 ? requestedWidth : 2150;
+      const height = Number.isInteger(requestedHeight) && requestedHeight >= 1 && requestedHeight <= 30000 ? requestedHeight : 3035;
+      const size = `${width} × ${height} px`;
+      const ext = ({png:'png',webp:'webp',jpeg:'jpg'})[fieldValue('lineFormat')] || 'png';
+      const fileFormat = selectedLabel('lineFormat') || 'PNG';
+      const prefix = fieldValue('lineFilePrefix') || 'pose_';
+      const filenames = Array.from({length:count},(_,i)=>`${prefix}${String(i+1).padStart(3,'0')}.${ext}`);
+      const stroke = fieldValue('lineStroke') || '3';
+      const bg = fieldValue('lineBackground') || '#FFFFFF';
+      const ink = fieldValue('lineInk') || '#000000';
+      const composition = selectedLabel('lineComposition') || '1枚につき1ポーズ';
+      const mono = /^#?f{6}$/i.test(bg) && /^#?0{6}$/i.test(ink) && (fieldValue('lineExpression') || '').includes('モノクロ');
+      const lines = [
+        '# イラスト制作向けポーズ集・線画清書依頼書',
+        '',
+        '## 【依頼内容】',
+        '添付したオリジナルのラフイラストを直接参照し、イラストレーター・漫画家・アニメーター向けの人体ポーズ参考資料を制作してください。',
+        'キャラクターの動作・構図・人体の立体感を学ぶための教育的・芸術的な作画資料です。元ラフのポーズを新しく考え直すのではなく、構図・身体のバランス・立体感を維持したまま清潔な線画に整えることが目的です。',
+        '説明や提案だけで終わらず、完成した画像データを実際に生成して個別に提出してください。',
+        '',
+        '## 【絶対条件：出力画像のピクセル寸法を厳守】',
+        `・納品する画像は【横${width}px × 縦${height}px】、すなわち【${size}】でなければなりません。近似サイズ・比率のみ一致・解像度表記だけ変更・別サイズでの納品は不可です。`,
+        `・添付ラフの元のサイズにかかわらず、最終的な画像ファイルの実際のピクセル寸法を必ず【${width}×${height}】にしてください。`,
+        `・使用する画像生成機能がこの寸法を直接指定できない場合、生成後に画像処理ツールで正確に【${width}×${height}】pxへ仕上げてください。縦横比と元ラフの構図・手足の形を維持し、引き伸ばしによる変形や無断の切り抜きを避けてください。必要なら構図を維持した比例リサイズと余白調整を使用してください。`,
+        `・納品前に画像ファイルを読み込み、幅=${width}px、高さ=${height}pxであることをピクセル単位で検査してください。1pxでも違う場合は不合格として修正・再検査し、一致したファイルのみ提出してください。`,
+        '・画像生成結果を見ただけでサイズを推測しないでください。寸法を確認できない場合、確認済みと断言しないでください。',
+        '',
+        '## 【画像仕様】',
+        `・画像サイズ：${size}（最終ファイルの実ピクセル寸法、厳守）`,
+        `・形式：${fileFormat}（各画像を独立ファイルとして保存）`,
+        `・背景：${bg}`,
+        `・線画：${ink}`,
+        `・線の太さ：約${stroke}pxの細い線で統一（仕上がり画像の実寸基準）`,
+        `・画風：${fieldValue('lineStyle') || LINE_DEFAULTS.lineStyle}`,
+        `・表現：${fieldValue('lineExpression') || LINE_DEFAULTS.lineExpression}`,
+        `・画像構成：${composition}`,
+        `・文字・装飾・背景イラスト：${selectedLabel('lineDecorations') || 'すべてなし'}`,
+        `・作画モデル：${selectedLabel('lineModel') || '成人の作画練習用デッサンモデル'}`,
+        `・頭部：${selectedLabel('lineFace') || '顔の中心線＋目線の十字補助線のみ（顔パーツなし）'}`,
+        `・人体モデルの衣装：${selectedLabel('lineSuit') || '白い全身タイツを着用した成人の作画練習モデル'}`,
+        '',
+        '## 【清書の基本方針】',
+        '### 1. 元画像のポーズと構図を最優先',
+        '添付したラフの頭部の位置・傾き、全身の向きとシルエット、手足の位置と動作、関節の曲がり方、重心、カメラアングル、パース、元ラフの二次元的なデフォルメ表現を可能な限り忠実に再現してください。',
+        '自然な関節のつながりを整える微調整は許可しますが、ポーズの変更、新しい動きの創作、カメラ角度の変更、身体の一部の無断カットはしないでください。',
+        '',
+        '### 2. 線画の清書',
+        `描き直し線・重複線・ガタつき・手ぶれを除去し、滑らかで細い約${stroke}pxの指定色（${ink}）で輪郭を一本線のように整えてください。途切れた輪郭を自然につなぎ、立体感は必要最小限の線で表現し、不要な描き込みは加えないでください。`,
+        'ペン入れが完了した漫画制作向けのデッサン素材のように、繊細で清潔感のある線画を目指してください。',
+        '',
+        '### 3. 頭部の描写',
+        `${selectedLabel('lineFace') || '顔の中心線＋目線の十字補助線のみ（顔パーツなし）'}。元ラフにある頭部輪郭と耳の形を尊重し、目・鼻・口・眉などの表情、髪型、アクセサリーを勝手に追加しないでください。`,
+        '',
+        '### 4. 人体の表現',
+        `${selectedLabel('lineSuit') || '白い全身タイツを着用した成人の作画練習モデル'}として、元ラフの体格・プロポーション・重心・立体構造を尊重してください。自然な関節と輪郭、適切な本数・形の手足の指を描き、解剖学的な過剰な描き込みや身体の特定部位の強調はしないでください。`,
+        `女性モデルについて：${selectedLabel('lineBreast') || '元ラフを基準に自然な範囲で調整（強調しない）'}。元ラフのポーズ・遠近感・全身の動きが伝わることを優先してください。`,
+        '元ラフにない衣服・靴・装飾品・小物・背景は加えず、指定があるものだけ忠実に扱ってください。性的な表現・演出は加えないでください。',
+        '',
+        mono ? '### 5. 白黒線画のルール' : '### 5. 指定した線画スタイルのルール',
+        mono ? '黒色の細い輪郭線のみを用い、白背景を維持し、カラーリング・グレーの塗り・陰影・グラデーション・トーン・テクスチャ・ベタ塗りは追加しないでください。全身タイツは衣服の輪郭がわかる最小限の線で表現してください。' : `背景は${bg}、線画は${ink}としてください。指定した表現「${fieldValue('lineExpression') || LINE_DEFAULTS.lineExpression}」以外のカラーリング・トーン・影・質感表現を勝手に加えないでください。`,
+        ''
+      ];
+      formatGroup(lines,'【追加のポーズ・参考資料情報】'.replace(/^【|】$/g,''),['lineMainPose','lineKeepObjects','lineStrokeRef']);
+      formatGroup(lines,'【清書の追加指定】'.replace(/^【|】$/g,''),['lineAdditional','lineDoNot']);
+      lines.push('## 【複数画像の書き出し】',
+        `・添付したラフの枚数：${count}枚。画像${count}枚を、それぞれ個別に清書・保存してください。`,
+        '・各画像の添付順・元のポーズを維持し、異なるポーズを1枚の画像にまとめないでください（画像構成で特別指定した場合を除く）。',
+        `・すべての完成画像を【${size}】・【${fileFormat}】とし、線幅・画風を統一してください。`,
+        '・ファイル名は以下の通り。番号と添付順を一致させてください。',
+        ...filenames.map((name,i)=>`  ${i+1}. ${name}`),
+        '');
+      lines.push('## 【画像ごとの補足】');
+      state.lineImages.slice(0,count).forEach((item,i)=>{
+        if (!clean(item.source) && !clean(item.notes)) return;
+        lines.push(`・画像${i+1} → ${filenames[i]}`);
+        if (clean(item.source)) lines.push(`  添付ラフ：${clean(item.source)}`);
+        if (clean(item.notes)) lines.push(`  追加指定：${clean(item.notes)}`);
+      });
+      if (!state.lineImages.slice(0,count).some(item=>clean(item.source)||clean(item.notes))) lines.push('・各ラフは添付順に番号付けし、順番を変えないでください。');
+      lines.push('',
+        '## 【禁止事項】',
+        '・元ポーズや構図を大幅に変更すること／別ポーズを考案すること',
+        '・指定外のキャラクターデザイン・顔の表情・衣服・アクセサリー・小物を追加すること',
+        '・太く荒れた線、重複したラフ線、余分な描き込みを残すこと',
+        '・画像仕様で指定していない陰影・色・グレースケール・グラデーション・模様・テクスチャを追加すること',
+        '・複数のラフを1枚にまとめること／手足や全身を無断でトリミングすること',
+        `・縦横比だけを合わせて【${width}×${height}】px以外で納品すること`,
+        '',
+        '## 【最終確認（各画像で必ず実施）】',
+        '□ 元ラフのポーズ・カメラ角度・体格を維持している',
+        `□ 約${stroke}pxの指定色（${ink}）の輪郭線で滑らかに清書され、重複線・ガタつきがない`,
+        '□ 顔の表情が追加されていない',
+        '□ 1枚のラフに対して1枚の完成画像である（特別指定を除く）',
+        '□ 不自然なトリミングがなく、身体の各部が収まっている',
+        `□ ファイルの実寸が【横${width}px × 縦${height}px】と完全一致する（ピクセル寸法を検査する）`,
+        `□ 個別ファイル形式が${fileFormat}で、ファイル名とラフの順番が一致する`,
+        '',
+        '## 【生成・納品指示】',
+        `実際に画像生成を行い、各ラフに対応した完成ファイル【${filenames.join('、')}】を個別に提出してください。`,
+        '画像生成AIが任意のピクセルサイズに直接対応していなければ、画像処理で指定サイズへ仕上げたうえで実ファイルの縦横寸法を確認してください。指示に従えない工程がある場合は、できたことと未確認・未対応のことを明確に伝えてください。',
+        '最優先順位：①元ラフのポーズ・構図・体型の保持、②指定線幅と均一な輪郭線、③各ポーズの独立納品、④指定ピクセル寸法の完全順守。',
+        '');
+      if (count > 1 && fieldValue('lineZip') !== 'none') lines.push('・各画像の個別ファイルに加え、すべてをまとめたZIPも提出してください。');
+      if (count === 1 && fieldValue('lineZip') === 'always') lines.push('・個別ファイルに加え、ZIPも提出してください。');
+      if (fieldValue('lineQuality') === 'regenerate') lines.push('・画像サイズに相違があった場合は、再生成または画像加工によって厳密な指定寸法へ直し、再検査してください。');
+      if (fieldValue('lineFinalNotes')) lines.push('', '【その他の納品指示】',fieldValue('lineFinalNotes'));
+      return lines.join('\n').trim()+'\n';
+    }
     function renderOutput() {
       const output = buildPrompt();
       const area = el('outputText');
@@ -1056,19 +1291,20 @@
       try {
         if (!navigator.clipboard?.writeText) throw new Error('unsupported');
         await navigator.clipboard.writeText(text);
-        toast('代筆依頼書をコピーしました');
+        toast('指示書をコピーしました');
       } catch {
         const area = el('outputText');
         area.focus(); area.select();
         try {
           if (!document.execCommand('copy')) throw new Error('failed');
-          toast('代筆依頼書をコピーしました');
+          toast('指示書をコピーしました');
         } catch {
           toast('自動コピーできません。プレビューを選択してコピーしてください。');
         }
       }
     }
     function safeFilename() {
+      if (state.articleMode === 'line') return 'イラスト線画清書';
       if (state.articleMode === 'pose') {
         const vol = clean(state.poseFields.poseVolume).replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,20);
         return `ポーズ素体集${vol ? '_Vol'+vol.replace(/^vol\.?/i,'') : ''}`;
@@ -1079,11 +1315,11 @@
     el('nextBtn').addEventListener('click',() => setSection(currentSection === activeSections().length-1 ? 0 : currentSection+1));
     el('copyBtn').addEventListener('click',copyPrompt);
     el('downloadBtn').addEventListener('click',() => {
-      downloadFile(`${safeFilename()}_note代筆依頼書.txt`,buildPrompt(),'text/plain;charset=utf-8');
+      downloadFile(`${safeFilename()}_${state.articleMode === 'line' ? '生成指示書' : 'note代筆依頼書'}.txt`,buildPrompt(),'text/plain;charset=utf-8');
       toast('TXTファイルを保存しました');
     });
     el('exportBtn').addEventListener('click',() => {
-      const snapshot = {app:'choco-note-request-studio',version:3,savedAt:new Date().toISOString(),...state};
+      const snapshot = {app:'choco-note-request-studio',version:4,savedAt:new Date().toISOString(),...state};
       downloadFile(`${safeFilename()}_記事依頼データ.json`,JSON.stringify(snapshot,null,2),'application/json;charset=utf-8');
       toast('JSONデータを保存しました');
     });
@@ -1107,7 +1343,7 @@
       event.target.value = '';
     });
     el('resetBtn').addEventListener('click',() => {
-      if (!confirm('記事の入力内容をクリアしますか？\n登録済みのゲームタイトルと現在選択中のタイトル・記事テンプレートは残ります。')) return;
+      if (!confirm('現在の入力内容をクリアしますか？\n登録済みのゲームタイトルと現在選択中のタイトル・テンプレートは残ります。\n線画テンプレートの画像仕様は初期値に戻ります。')) return;
       const savedTitles = [...state.gameTitles];
       const selectedTitle = state.fields.gameTitle;
       const mode = state.articleMode;
@@ -1119,20 +1355,27 @@
       renderSection(); refreshAfterInput(); updateTemplateButtons(); toast('記事入力をクリアしました（登録済みタイトルは保持）');
     });
     function updateTemplateButtons() {
-      el('modeGame').setAttribute('aria-pressed',String(state.articleMode !== 'pose'));
-      el('modePose').setAttribute('aria-pressed',String(state.articleMode === 'pose'));
-      el('outputText').setAttribute('aria-label',state.articleMode === 'pose' ? 'ポーズ素体集の代筆依頼書' : 'ゲーム制作記事の代筆依頼書');
-      el('sectionCount').title = state.articleMode === 'pose' ? 'ポーズ素体集向けの入力モードです' : 'ゲーム制作記事向けの入力モードです';
-      document.querySelector('.preview-lead').textContent = state.articleMode === 'pose'
-        ? '300円の有料素体集向け。無料／有料エリア、規約、ポーズ別のPNGと実際のプロンプトを整理します。'
+      for (const button of document.querySelectorAll('[data-mode]')) button.setAttribute('aria-pressed',String(state.articleMode === button.dataset.mode));
+      const line = state.articleMode === 'line';
+      const pose = state.articleMode === 'pose';
+      el('previewHeading').textContent = line ? 'GPTへの線画生成指示書' : 'GPTへの代筆依頼書';
+      el('outputText').setAttribute('aria-label',line ? 'イラスト線画清書の生成指示書' : pose ? 'ポーズ素体集の代筆依頼書' : 'ゲーム制作記事の代筆依頼書');
+      el('sectionCount').title = line ? '線画生成の指定を入力するモードです' : pose ? 'ポーズ素体集向けの入力モードです' : 'ゲーム制作記事向けの入力モードです';
+      document.querySelector('.preview-lead').textContent = line
+        ? '指定解像度は厳守。元ラフを維持した清書、細い線、画像ごとの個別納品・寸法検査を指示します。'
+        : pose ? '300円の有料素体集向け。無料／有料エリア、規約、ポーズ別のPNGと実際のプロンプトを整理します。'
         : '記入した内容だけを反映。固定の執筆条件と、記事の最後に載せるHP・Patreonのリンクは必ず追加します。';
+      document.querySelector('.hint-box strong').textContent='使い方';
+      document.querySelector('.hint-box').lastChild.textContent = line
+        ? '入力 → 指示書をコピー → ChatGPTに元ラフ画像と一緒に貼り付けてください。※ このアプリが作るのは指示書です。画像の実ピクセル寸法は生成後に検査が必要です。'
+        : '入力 → 指示書をコピー → ChatGPTに貼り付けるだけ。画像を使う場合は、実際の画像ファイルもChatGPTに添付してください。';
     }
     document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click',() => {
       if (state.articleMode === button.dataset.mode) return;
       state.articleMode = button.dataset.mode;
       currentSection = 0;
       renderSection(); refreshAfterInput(); updateTemplateButtons();
-      toast(state.articleMode === 'pose' ? '有料ポーズ素体集テンプレートに切り替えました' : 'ゲーム制作記事テンプレートに切り替えました');
+      toast(state.articleMode === 'line' ? 'イラスト線画生成テンプレートに切り替えました' : state.articleMode === 'pose' ? '有料ポーズ素体集テンプレートに切り替えました' : 'ゲーム制作記事テンプレートに切り替えました');
     }));
     renderSection(); renderNav(); renderOutput(); updateTemplateButtons();
   </script>
