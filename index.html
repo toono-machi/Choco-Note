@@ -126,6 +126,20 @@
     .title-row > .btn { flex-shrink: 0; }
     .title-registry-note { color: var(--muted); font-size: 11px; margin: 0; }
     .title-divider { border: 0; border-top: 1px solid #e7d9cd; margin: 1px 0; }
+    .template-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 6px; margin-bottom: 25px; border-radius: 14px; background: #f4ece3; border: 1px solid #e6d6c6; }
+    .template-option { min-width: 0; padding: 12px 9px; border-radius: 10px; background: transparent; border: 1px solid transparent; color: #7a665c; font-size: 12px; font-weight: 750; line-height: 1.5; }
+    .template-option:hover { background: #fffaf4; }
+    .template-option[aria-pressed="true"] { background: #fffefa; color: #5b3a2d; border-color: #dbc1af; box-shadow: 0 3px 12px rgba(95,56,36,.08); }
+    .pose-card { padding: 18px; background: #fcf8f3; border: 1px solid #e7d8c9; border-radius: 14px; display: grid; gap: 16px; }
+    .pose-card-title { font-weight: 800; color: var(--coffee); font-size: 14px; margin: 0; }
+    .pose-card-subtitle { font-size: 11px; font-weight: 800; color: #9b7460; letter-spacing: .05em; margin: 4px 0 0; }
+    .pose-block-title { border-bottom: 1px solid #e5d7c9; padding-bottom: 5px; color: #755446; font-size: 12px; font-weight: 800; margin: 3px 0 0; }
+    .pose-card-list { display: grid; gap: 17px; }
+    .price-lock { background: #f7efe5; border: 1px solid #ddc7b5; padding: 12px 15px; border-radius: 12px; font-weight: 800; color: #6a4738; font-size: 13px; }
+    .price-lock small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
+    .policy-preview { border: 1px solid #dfcfbf; background: #fffaf4; border-radius: 12px; padding: 15px; font-size: 12px; white-space: pre-line; color: #705449; line-height: 1.9; }
+    .pose-workflow { border-left: 3px solid #b68a70; background: #faf4ed; padding: 12px 14px; border-radius: 0 10px 10px 0; color: #70544b; font-size: 12px; }
+
     .editor-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--border); margin-top: 29px; padding-top: 21px; }
     .editor-bottom .btn { min-width: 101px; }
     .editor-bottom .muted-info { font-size: 11px; color: var(--muted); }
@@ -197,6 +211,7 @@
       .footer { padding: 0 15px 20px; }
       .title-row { flex-wrap: wrap; }
       .title-row > .btn { flex: 1 1 auto; }
+      .template-switcher { grid-template-columns: 1fr; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
   </style>
@@ -232,6 +247,10 @@
     </aside>
 
     <main class="editor panel">
+      <div class="template-switcher" role="group" aria-label="記事テンプレートの切り替え">
+        <button type="button" class="template-option" id="modeGame" data-mode="game" aria-pressed="true">🎮 ゲーム制作の記事</button>
+        <button type="button" class="template-option" id="modePose" data-mode="pose" aria-pressed="false">✎ 有料ポーズ素体集（300円）</button>
+      </div>
       <span class="eyebrow" id="sectionEyebrow">STEP 01 / 08</span>
       <h1 id="sectionTitle">記事の基本情報</h1>
       <p class="section-description" id="sectionDescription"></p>
@@ -291,6 +310,10 @@
       design: {
         label: 'イラスト・UIの制作過程',
         tags: ['#ゲーム制作','#イラスト','#キャラクターデザイン','#UIデザイン','#創作記録']
+      },
+      pose: {
+        label: 'トレスOK・ポーズ素体集',
+        tags: ['#ポーズ集','#トレスOK','#イラスト素材','#お絵描き','#AI活用']
       }
     };
     const TYPES = [
@@ -363,9 +386,67 @@
         ]
       }
     ];
+    const POSE_SECTIONS = [
+      {
+        id:'poseBasic',title:'シリーズ・販売情報',subtitle:'Vol.番号や、今回のテーマを入力します。価格は毎回300円で固定されます。',
+        fields:[
+          {key:'poseVolume',label:'Vol.番号',type:'number',placeholder:'例：1（数字だけ入力。Vol.は自動付与）'},
+          {key:'poseTheme',label:'今回のテーマ・ジャンル',type:'text',placeholder:'例：俯瞰＆格闘ポーズ／手のパース'},
+          {key:'poseCount',label:'収録するポーズ数',type:'select',options:[['3','3ポーズ'],['4','4ポーズ'],['5','5ポーズ']]},
+          {key:'poseSummary',label:'今回の素体集の見どころ',type:'textarea',placeholder:'例：ケレン味のあるパース、動きのある構えなど',rows:4},
+          {key:'poseAudience',label:'おすすめしたい読者・用途',type:'textarea',placeholder:'例：漫画のアクション場面、キャラのラフ、アタリ制作',rows:3}
+        ]
+      },
+      {id:'poseList',title:'収録ポーズの詳細',subtitle:'各ポーズの特徴、比較画像、配布PNG、実際に使ったAIプロンプトを登録します。',custom:'poses'},
+      {
+        id:'poseFree',title:'無料エリアの紹介',subtitle:'購入前に読める導入文、制作の見どころ、ラフと清書の比較を指定します。',
+        fields:[
+          {key:'poseIntro',label:'読者が共感できる悩み・書き出し',type:'textarea',placeholder:'例：俯瞰の体のパースが狂う／パンチの迫力が出ない',rows:4},
+          {key:'poseDepth',label:'二次元のケレン味・3Dとの違い',type:'textarea',placeholder:'例：3Dの正確さより勢いを優先したラフを工夫した',rows:4},
+          {key:'poseProductionStory',label:'制作工程のエピソード・工夫',type:'textarea',placeholder:'自分で描いたラフ→AI清書→自分で微調整。その際に意識したこと',rows:4},
+          {key:'posePreviewNotes',label:'無料エリアの画像比較・掲載についての希望',type:'textarea',placeholder:'例：3枚ともラフと完成線画を横並びで比較／まず1枚目を大きく見せる',rows:3},
+          {key:'poseBenefits',label:'読者に伝えたいメリット・感想',type:'textarea',placeholder:'例：透過素材ですぐアタリに利用／時短／構図のアイデアに',rows:3}
+        ]
+      },
+      {
+        id:'posePaid',title:'有料エリア・配布情報',subtitle:'透過PNGのリンクと実際の指示文を有料エリアで案内します。リンクが未定の場合、記事では空欄のままにせずプレースホルダーを出します。',
+        fields:[
+          {key:'poseBundleUrl',label:'一括ダウンロード先（ZIP等・任意）',type:'text',placeholder:'https://... または「noteにZIP添付」など'},
+          {key:'poseFiles',label:'収録する素材・サイズ・形式など',type:'textarea',placeholder:'例：高解像度の背景透過PNG、線画、ラフ（実際の内容のみ）',rows:3},
+          {key:'poseDownloadHelp',label:'ダウンロード・使い方の補足',type:'textarea',placeholder:'例：クリスタにドラッグ＆ドロップして下敷きにする',rows:3},
+          {key:'posePromptComment',label:'プロンプトの補足や微調整の注意',type:'textarea',placeholder:'例：同じ指示文でもAIの結果は変わる場合があります',rows:3}
+        ]
+      },
+      {
+        id:'posePublishing',title:'タイトル・投稿の希望',subtitle:'記事タイトルは直球・お悩み解決・300円のお手軽さの3方向で作成するよう指定できます。',
+        fields:[
+          {key:'poseTitleStyle',label:'掲載用タイトルの方向性',type:'select',options:[['practical','直球・実用性重視'],['solution','お悩み解決重視'],['price','300円の手軽さ重視'],['balanced','3方向から最適案を選ぶ']]},
+          {key:'poseTitleOptions',label:'タイトルの候補',type:'select',options:[['three','3案＋おすすめ1案を提案'],['one','掲載用の1案のみ']]},
+          {key:'poseTone',label:'文章の雰囲気',type:'select',options:[['friendly','親しみやすく落ち着いた文章'],['fun','少しおちゃめで明るい文章'],['practical','実用的でわかりやすい文章']]},
+          {key:'poseLength',label:'文章量',type:'select',options:[['short','短め（500〜800字）'],['standard','標準（1,000〜2,000字）'],['long','長め（2,000字以上）']]},
+          {key:'poseNext',label:'次回予告・定期更新の案内',type:'textarea',placeholder:'次に描きたいポーズや更新予定（確定していることだけ）',rows:3},
+          {key:'poseOtherLinks',label:'記事内に追加で紹介したいリンク',type:'textarea',placeholder:'関連作品や記事のURL（HP・Patreonは自動で末尾へ）',rows:3}
+        ]
+      },
+      {id:'poseTags',title:'ハッシュタグ',subtitle:'ポーズ素体集向けのセットを初期選択済み。別のセット・追加タグにも対応します。',custom:'tags'},
+      {
+        id:'poseExtra',title:'補足・注意事項',subtitle:'利用規約は固定で挿入されます。例外的な補足があれば入力してください。',
+        fields:[
+          {key:'poseMustInclude',label:'必ず紹介したい文章・情報',type:'textarea',placeholder:'販売案内など、掲載したい内容',rows:4},
+          {key:'poseDoNotInclude',label:'書かないでほしいこと',type:'textarea',placeholder:'避けたい表現、ネタバレなど',rows:4},
+          {key:'poseOtherInstructions',label:'その他の補足・指示',type:'textarea',placeholder:'自由に入力してください',rows:4}
+        ]
+      }
+    ];
+    const POSE_FIELD_MAP = new Map(POSE_SECTIONS.flatMap(s => (s.fields || []).map(f => [f.key,f])));
+    const defaultPose = () => ({title:'',category:'',point:'',roughImage:'',cleanImage:'',pngName:'',downloadUrl:'',actualPrompt:''});
+    const activeSections = () => state.articleMode === 'pose' ? POSE_SECTIONS : SECTIONS;
+    const poseCount = () => [3,4,5].includes(Number(state.poseFields.poseCount)) ? Number(state.poseFields.poseCount) : 3;
     const FIELD_MAP = new Map(SECTIONS.flatMap(s => (s.fields || []).map(f => [f.key,f])));
-    const SECTION_NAMES = Object.fromEntries(SECTIONS.map(s => [s.id,s.title]));
-    const defaultState = () => ({fields:{},images:[],tagPreset:'',extraTags:'',gameTitles:[]});
+    const SECTION_NAMES = Object.fromEntries([...SECTIONS,...POSE_SECTIONS].map(s => [s.id,s.title]));
+    const defaultState = () => ({fields:{},images:[],tagPreset:'',extraTags:'',gameTitles:[],
+      articleMode:'game',poseFields:{poseCount:'3',poseTitleOptions:'three',poseTitleStyle:'balanced'},
+      poses:Array.from({length:3},defaultPose),poseTagPreset:'pose',poseExtraTags:''});
     let state = loadState();
     let currentSection = 0;
     let toastTimeout;
@@ -373,9 +454,9 @@
     const el = id => document.getElementById(id);
     const clean = value => String(value ?? '').trim();
     const addLine = (lines, label, value) => { if (clean(value)) lines.push('・' + label + '：' + clean(value)); };
-    const fieldValue = key => clean(state.fields[key]);
+    const fieldValue = key => clean((POSE_FIELD_MAP.has(key) ? state.poseFields : state.fields)[key]);
     const selectedLabel = key => {
-      const f = FIELD_MAP.get(key);
+      const f = FIELD_MAP.get(key) || POSE_FIELD_MAP.get(key);
       const val = fieldValue(key);
       if (!f || !val || f.type !== 'select') return val;
       return f.options.find(option => option[0] === val)?.[1] || '';
@@ -409,6 +490,23 @@
       }));
       if (typeof data.tagPreset === 'string' && TAG_PRESETS[data.tagPreset]) result.tagPreset = data.tagPreset;
       if (typeof data.extraTags === 'string') result.extraTags = data.extraTags.slice(0,5000);
+      if (data.articleMode === 'pose') result.articleMode = 'pose';
+      if (data.poseFields && typeof data.poseFields === 'object' && !Array.isArray(data.poseFields)) {
+        for (const key of POSE_FIELD_MAP.keys()) {
+          if (typeof data.poseFields[key] === 'string') result.poseFields[key] = data.poseFields[key].slice(0,100000);
+        }
+      }
+      if (!['3','4','5'].includes(result.poseFields.poseCount)) result.poseFields.poseCount = '3';
+      if (!['three','one'].includes(result.poseFields.poseTitleOptions)) result.poseFields.poseTitleOptions = 'three';
+      if (!['practical','solution','price','balanced'].includes(result.poseFields.poseTitleStyle)) result.poseFields.poseTitleStyle = 'balanced';
+      if (Array.isArray(data.poses)) result.poses = data.poses.slice(0,5).map(item => {
+        const pose = defaultPose();
+        for (const key of Object.keys(pose)) if (typeof item?.[key] === 'string') pose[key] = item[key].slice(0,100000);
+        return pose;
+      });
+      while (result.poses.length < 5) result.poses.push(defaultPose());
+      if (typeof data.poseTagPreset === 'string' && TAG_PRESETS[data.poseTagPreset]) result.poseTagPreset = data.poseTagPreset;
+      if (typeof data.poseExtraTags === 'string') result.poseExtraTags = data.poseExtraTags.slice(0,5000);
       if (Array.isArray(data.gameTitles)) {
         for (const item of data.gameTitles.slice(0,100)) {
           const title = typeof item === 'string' ? item.trim().slice(0,120) : '';
@@ -454,7 +552,8 @@
         for (const [optionValue, optionLabel] of def.options) input.appendChild(new Option(optionLabel,optionValue));
       } else {
         input = make('input','input');
-        input.type = 'text';
+        input.type = def.type === 'number' ? 'number' : 'text';
+        if (def.type === 'number') { input.min = '1'; input.max = '9999'; input.step = '1'; }
         input.placeholder = def.placeholder || '';
       }
       input.id = id;
@@ -538,13 +637,16 @@
     }
     function sectionHasValue(s) {
       if (s.custom === 'images') return state.images.some(img => clean(img.name) || clean(img.description) || clean(img.placement));
-      if (s.custom === 'tags') return Boolean(state.tagPreset || clean(state.extraTags));
+      if (s.custom === 'poses') return state.poses.slice(0,poseCount()).some(p => Object.values(p).some(clean));
+      if (s.custom === 'tags') return state.articleMode === 'pose'
+        ? Boolean(state.poseTagPreset || clean(state.poseExtraTags))
+        : Boolean(state.tagPreset || clean(state.extraTags));
       return s.fields.some(f => fieldValue(f.key));
     }
     function renderNav() {
       const nav = el('sectionNav');
       nav.replaceChildren();
-      for (const [index,s] of SECTIONS.entries()) {
+      for (const [index,s] of activeSections().entries()) {
         const btn = make('button','nav-step' + (sectionHasValue(s) ? ' has-value' : ''));
         btn.type = 'button';
         if (index === currentSection) btn.setAttribute('aria-current','step');
@@ -554,9 +656,10 @@
         btn.addEventListener('click', () => setSection(index));
         nav.appendChild(btn);
       }
-      const done = SECTIONS.filter(sectionHasValue).length;
-      el('progressText').textContent = `${done} / ${SECTIONS.length}`;
-      el('progressFill').style.width = (100 * done / SECTIONS.length) + '%';
+      const sections = activeSections();
+      const done = sections.filter(sectionHasValue).length;
+      el('progressText').textContent = `${done} / ${sections.length}`;
+      el('progressFill').style.width = (100 * done / sections.length) + '%';
     }
     function refreshAfterInput() {
       persist();
@@ -565,27 +668,31 @@
       updateSectionCount();
     }
     function updateSectionCount() {
-      const s = SECTIONS[currentSection];
+      const s = activeSections()[currentSection];
       let filled = 0;
       if (s.custom === 'images') filled = state.images.filter(img => clean(img.name) || clean(img.description) || clean(img.placement)).length;
-      else if (s.custom === 'tags') filled = Number(Boolean(state.tagPreset)) + Number(Boolean(clean(state.extraTags)));
+      else if (s.custom === 'poses') filled = state.poses.slice(0,poseCount()).filter(p => Object.values(p).some(clean)).length;
+      else if (s.custom === 'tags') filled = state.articleMode === 'pose'
+        ? Number(Boolean(state.poseTagPreset)) + Number(Boolean(clean(state.poseExtraTags)))
+        : Number(Boolean(state.tagPreset)) + Number(Boolean(clean(state.extraTags)));
       else filled = s.fields.filter(f => fieldValue(f.key)).length;
       el('sectionCount').textContent = filled ? `${filled}項目入力済み · 空欄は出力しません` : '空欄は出力されません';
     }
     function setSection(index) {
-      currentSection = Math.min(Math.max(index,0),SECTIONS.length-1);
+      currentSection = Math.min(Math.max(index,0),activeSections().length-1);
       renderSection();
       renderNav();
       if (window.innerWidth <= 740) el('sectionTitle').scrollIntoView({behavior:'smooth',block:'start'});
     }
     function renderSection() {
-      const s = SECTIONS[currentSection];
-      el('sectionEyebrow').textContent = `STEP ${String(currentSection+1).padStart(2,'0')} / ${String(SECTIONS.length).padStart(2,'0')}`;
+      const s = activeSections()[currentSection];
+      el('sectionEyebrow').textContent = `STEP ${String(currentSection+1).padStart(2,'0')} / ${String(activeSections().length).padStart(2,'0')}`;
       el('sectionTitle').textContent = s.title;
       el('sectionDescription').textContent = s.subtitle;
       const container = el('sectionContent');
       container.replaceChildren();
       if (s.custom === 'images') renderImages(container);
+      else if (s.custom === 'poses') renderPoses(container);
       else if (s.custom === 'tags') renderTags(container);
       else {
         const form = make('div','field-grid');
@@ -594,17 +701,67 @@
             form.appendChild(renderTitleRegistry());
             continue;
           }
-          form.appendChild(createField(f,state.fields[f.key] || '',value => {
-            state.fields[f.key] = value;
+          form.appendChild(createField(f,fieldValue(f.key),value => {
+            const store = POSE_FIELD_MAP.has(f.key) ? state.poseFields : state.fields;
+            store[f.key] = value;
             refreshAfterInput();
           }));
+          if (f.key === 'poseCount') {
+            form.appendChild(make('p','title-registry-note','3〜5ポーズから選択。ここで数を変更すると「収録ポーズの詳細」のカード数が変わります。'));
+          }
         }
         container.appendChild(form);
       }
+      if (s.id === 'poseBasic') {
+        container.prepend(make('div','price-lock','販売価格：300円（固定）'));
+      }
+      if (s.id === 'poseFree') {
+        const policy = make('div','policy-preview',POSE_TERMS.join('\n'));
+        policy.style.marginTop = '20px';
+        container.appendChild(policy);
+      }
       el('previousBtn').disabled = currentSection === 0;
       el('previousBtn').style.visibility = currentSection === 0 ? 'hidden' : 'visible';
-      el('nextBtn').textContent = currentSection === SECTIONS.length-1 ? '最初に戻る ↺' : '次へ →';
+      el('nextBtn').textContent = currentSection === activeSections().length-1 ? '最初に戻る ↺' : '次へ →';
       updateSectionCount();
+    }
+    function renderPoses(container) {
+      const intro = make('div','pose-workflow','制作工程（固定）：私が手描きラフを描く → AIが線画を清書する → 私が微調整して仕上げる。無料エリアではラフと清書の比較、有料エリアでは透過PNGと実際のプロンプトを公開します。');
+      intro.style.marginBottom = '17px';
+      container.appendChild(intro);
+      const holder = make('div','pose-card-list');
+      while (state.poses.length < poseCount()) state.poses.push(defaultPose());
+      const definitions = [
+        {key:'title',label:'ポーズ名',type:'text',placeholder:'例：手前に拳を突き出すパンチ'},
+        {key:'category',label:'構図・ジャンル',type:'text',placeholder:'例：格闘／俯瞰／戦闘の構え'},
+        {key:'point',label:'アピールポイント・特徴',type:'textarea',rows:3,placeholder:'例：遠近感、重心、ケレン味、イラストの用途'},
+        {key:'roughImage',label:'手描きラフの画像名（無料公開用）',type:'text',placeholder:'例：01_rough.png'},
+        {key:'cleanImage',label:'AI清書＋手直し後の比較画像名（無料公開用）',type:'text',placeholder:'例：01_clean_preview.png'},
+        {key:'pngName',label:'完成した背景透過PNGのファイル名（有料用）',type:'text',placeholder:'例：01_pose_transparent.png'},
+        {key:'downloadUrl',label:'透過PNGの個別DLリンク（有料用・任意）',type:'text',placeholder:'https://... または「note添付ファイル」'},
+        {key:'actualPrompt',label:'実際にAIへ入力したプロンプト（原文そのまま）',type:'textarea',rows:7,placeholder:'実際に使った指示文を貼り付け。記事では文章を改変せずコピペ可能な形で掲載'}
+      ];
+      state.poses.slice(0,poseCount()).forEach((pose,index) => {
+        const card = make('section','pose-card');
+        card.appendChild(make('h3','pose-card-title',`ポーズ ${index+1} / ${poseCount()}`));
+        const free = make('div','field-grid');
+        const paid = make('div','field-grid');
+        definitions.forEach((def,i) => {
+          const withIndex = {...def,key:`pose-${index}-${def.key}`};
+          const field = createField(withIndex,pose[def.key],value => {
+            state.poses[index][def.key] = value;
+            refreshAfterInput();
+          });
+          (i <= 4 ? free : paid).appendChild(field);
+        });
+        card.appendChild(make('div','pose-block-title','無料エリア向け（ポーズ紹介・ラフ／清書の比較）'));
+        card.appendChild(free);
+        card.appendChild(make('div','pose-block-title','有料エリア向け（透過PNG・実際のAI指示文）'));
+        card.appendChild(paid);
+        holder.appendChild(card);
+      });
+      container.appendChild(holder);
+      container.appendChild(make('p','notice-inline','※ 指定したファイル名・URL・指示文だけを依頼書に反映します。画像の本体はChatGPTに別途添付してください。実際のダウンロードリンクがまだない場合、GPTに架空のURLを作らせない指示が入ります。'));
     }
     const PLACEMENTS = [
       ['','配置場所を選択（任意）'],
@@ -680,20 +837,24 @@
       container.appendChild(make('p','notice-inline','※ 読み込むのはファイル名のみです。画像はアップロード・保存・送信されません。'));
     }
     function parseCustomTags() {
-      return clean(state.extraTags).split(/[\s,，、]+/u).filter(Boolean).map(t => t.startsWith('#') ? t : '#' + t);
+      return clean(state.articleMode === 'pose' ? state.poseExtraTags : state.extraTags).split(/[\s,，、]+/u).filter(Boolean).map(t => t.startsWith('#') ? t : '#' + t);
     }
     function getTags() {
-      const primary = TAG_PRESETS[state.tagPreset]?.tags || [];
+      const primary = TAG_PRESETS[state.articleMode === 'pose' ? state.poseTagPreset : state.tagPreset]?.tags || [];
       return [...new Set([...primary,...parseCustomTags()])];
     }
     function renderTags(container) {
       const grid = make('div','field-grid');
       const opts = Object.entries(TAG_PRESETS).map(([key,preset]) => [key,preset.label]);
-      grid.appendChild(createField({key:'tagPreset',label:'タグの組み合わせ',type:'select',options:opts},state.tagPreset,value => {
-        state.tagPreset = value; refreshAfterInput(); updateTagPreview();
+      grid.appendChild(createField({key:'tagPreset',label:'タグの組み合わせ',type:'select',options:opts},state.articleMode === 'pose' ? state.poseTagPreset : state.tagPreset,value => {
+        if (state.articleMode === 'pose') state.poseTagPreset = value;
+        else state.tagPreset = value;
+        refreshAfterInput(); updateTagPreview();
       }));
-      grid.appendChild(createField({key:'extraTags',label:'追加したいタグ（任意）',type:'textarea',rows:3,placeholder:'例：#開発日記 #ゲーム好きと繋がりたい',tip:'スペース・カンマ・改行で区切って入力。#がなくても自動で付与します。'},state.extraTags,value => {
-        state.extraTags = value; refreshAfterInput(); updateTagPreview();
+      grid.appendChild(createField({key:'extraTags',label:'追加したいタグ（任意）',type:'textarea',rows:3,placeholder:state.articleMode === 'pose'?'例：#イラスト #創作資料':'例：#開発日記 #ゲーム好きと繋がりたい',tip:'スペース・カンマ・改行で区切って入力。#がなくても自動で付与します。'},state.articleMode === 'pose' ? state.poseExtraTags : state.extraTags,value => {
+        if (state.articleMode === 'pose') state.poseExtraTags = value;
+        else state.extraTags = value;
+        refreshAfterInput(); updateTagPreview();
       }));
       container.appendChild(grid);
       const preview = make('div','tag-preview');
@@ -715,13 +876,14 @@
     function formatGroup(lines, title, keys) {
       const items = [];
       for (const key of keys) {
-        const f = FIELD_MAP.get(key);
+        const f = FIELD_MAP.get(key) || POSE_FIELD_MAP.get(key);
         const value = selectedLabel(key);
         if (f && value) addLine(items,f.label,value);
       }
       if (items.length) lines.push(`【${title}】`,...items,'');
     }
     function buildPrompt() {
+      if (state.articleMode === 'pose') return buildPosePrompt();
       const lines = [
         '【依頼内容】',
         '以下の「提供情報」をもとに、noteに投稿するゲーム制作関連の記事を代筆してください。',
@@ -774,13 +936,112 @@
       );
       return lines.join('\n').trim()+'\n';
     }
+    const POSE_TERMS = [
+      '【ご利用規約】',
+      '・トレス／加工／商用利用：個人／商業誌問わず、イラストの下敷き／トレス素材として自由にご利用いただけます。',
+      '・二次配布／転載：素材データ（線画・ラフ）そのものをそのまま再配布／販売／転載することは固く禁止します。',
+      '・クレジット表記：使用報告や当サークルのクレジット表記は不要です（表記・ご紹介いただけると大変励みになります！）。'
+    ];
+    function buildPosePrompt() {
+      const count = poseCount();
+      const volume = fieldValue('poseVolume');
+      const numberLabel = volume ? (volume.toLowerCase().startsWith('vol') ? volume : 'Vol.' + volume) : '巻数未指定';
+      const candidates = fieldValue('poseTitleOptions') !== 'one';
+      const lines = [
+        '【依頼内容】',
+        'noteで定期公開する「トレス・加工・商用利用OKの有料ポーズ素体集」の紹介・販売記事を代筆してください。',
+        '以下の提供情報に基づき、noteにそのまま掲載できる、無料エリアと有料エリアを明確に分けた原稿を制作してください。',
+        '',
+        '【シリーズの固定仕様】',
+        '・価格：1記事300円（税込表記は依頼情報にないため断定しない）。ワンコイン（500円）という言い換えはしない。',
+        `・収録数：${count}ポーズ（この依頼書で指定されたポーズ数）。`,
+        '・制作工程（順序厳守）：①私（遠廼まち）がポーズのラフを手描き → ②AIがラフをもとに線画を清書 → ③私が微調整して完成。',
+        '・手描きラフもAIが生成したものだと誤解させない。AIの清書後に人間が仕上げる協働制作であることを明確に伝える。',
+        '・無料エリア：手描きラフとAI清書（微調整後）の完成見本を比較して収録ポーズを紹介する。',
+        '・有料エリア：背景透過PNGのダウンロード案内と、AIに実際に入力したプロンプト原文をコピペしやすく掲載する。',
+        '・使用可能範囲：トレス・加工・商用利用OK。素材そのものの再配布・販売・転載を禁止。使用報告とクレジットは任意。',
+        '',
+        '【出力と文章の必須条件】',
+        '1. note記事の本文は、必ず「こんにちは、遠廼まちです！」から始める。明るさがありつつ落ち着いた、親しみやすい創作者の文章にする。',
+        '2. 無料エリアと有料エリアが分かる見出しを付け、切り替わりの位置に「【ここから有料エリア（noteの有料ライン設置位置）】」を独立した行で入れる。note編集画面で有料ラインを設置する際の目印にする。',
+        '3. 無料エリアでは、パースや動きのアタリで困る描き手の悩みに寄り添い、3Dの正確さとは別の「二次元的なケレン味・勢い」を表現したポーズの価値を伝える。ただし3Dモデルの性能や効果を根拠なく否定しない。',
+        '4. 無料エリアに各ポーズの特徴・活用場面を掲載し、手描きラフと完成した線画の画像を並べる位置を「【比較画像：ラフ○○／清書○○】」のように明示する。名前が未提供の場合は架空のファイル名を作らず、必要に応じ「【画像：ラフと清書を横並びで掲載】」と記す。',
+        '5. 「ラフを自分で描く→AIで清書→自分で微調整」という3工程と、背景透過PNGをCLIP STUDIO PAINT・Photoshop・アイビスペイントなどのお絵描きソフトで下敷きにできる使い勝手を、自然に説明する。ドラッグ＆ドロップの時短メリットは案内してよいが、未確認の機能・サイズ・品質は断定しない。',
+        '6. 無料エリアの最後（有料ラインより前）に、下記の「ご利用規約」を見出し・3項目とも省略や意味の変更なく掲載する。規約の後に補足する場合も有料ラインより前に配置する。',
+        '7. 有料エリアでは、各ポーズの背景透過PNGと実際のプロンプトを対応付け、原文は改変・要約・架空生成せず、そのままコピーできるコードブロックなどで掲載する。',
+        '8. URLやファイル名、プロンプトの原文が未提供なら創作せず、「【透過PNGのダウンロードリンクをここに設定】」「【実際のAIプロンプトをここに貼り付け】」などの明確な編集用プレースホルダーを使う。公開済みと誤認させる架空のリンクは作らない。',
+        '9. 見出し・ポーズ名・タイトルのポーズ数・巻数は指定と一致させる。ポーズ数が未入力の詳細はそれらしく捏造せず、該当欄を補うためのプレースホルダーにする。収録ポーズを勝手に追加しない。',
+        '10. 300円という価格を正確に記載し、購入で何が使えるか、利用規約、具体的な使い道をわかりやすく説明する。過剰な効果保証、誇大な宣伝、根拠のない評判は避ける。',
+        '11. 提供された制作体験・実績・更新日時・ソフトの動作・数値以外を事実として補完しない。本文には制作日記らしい自然な流れを作りつつ、未提供の実体験やボツ案は創作しない。',
+        '12. 記事末尾は、指定ハッシュタグがあればその後に固定リンク「HP」「Patreon」をそのまま2行載せる。Patreonの行より後には何も追記しない。',
+        candidates
+          ? '13. 出力の先頭にインパクト重視のタイトル候補を「①直球・実用性 ②悩み解決 ③300円のお手軽さ」の3案で提案した後、掲載用のタイトル1案を採用した完成原稿を提示する。候補一覧は記事本文に混ぜず、「【掲載用原稿】」以降をnoteに貼り付けられる状態にする。'
+          : '13. タイトル候補一覧は出さず、掲載用の魅力的なタイトルを1案だけ付けて、完成原稿を提示する。',
+        '',
+        '【タイトル作成の参考方向性】',
+        '・直球・実用性：【トレス・加工OK】狂いやすいパースを克服する！ケレン味あふれるアクションポーズ素体集Vol.〈巻数〉',
+        '・悩み解決：「なんか硬い…」を解消！手描きラフ×AI清書で生まれるダイナミックポーズ集',
+        '・価格訴求：【300円で使えるアタリ素材】そのまま使える透過PNG：俯瞰＆格闘ポーズ〈収録数〉選',
+        `・今回の巻数：${numberLabel}。巻数が未指定ならVol.の数字を勝手に作らない。`,
+        `・今回のポーズ数：${count}（例示タイトルの数字は、この数に置き換える）。`,
+        '',
+        '【無料エリアの推奨構成】',
+        '・共感を呼ぶ導入：「この角度のパースが難しい」「3Dだと欲しい勢いを表現しづらい」など、提供情報に沿った悩みの紹介。',
+        '・シリーズの趣旨：手描きラフとAIの清書、作者の微調整を組み合わせたポーズ素体集であること。',
+        `・収録した${count}ポーズの紹介：それぞれの特徴・使いどころと、ラフ／清書の比較画像。`,
+        '・購入案内：300円の有料エリアで何を受け取れるか（背景透過PNG＋実際の指示文）と、絵の下敷きとしてすぐ使える利点。',
+        '・ご利用規約：以下に示す固定文言を、無料エリアの最後かつ有料ラインの直前に掲載。',
+        '',
+        '【有料エリアの推奨構成】',
+        '・ダウンロード先：収録ポーズごとの透過PNGリンク、または指定された一括ZIPリンク。リンク未提供なら編集用プレースホルダー。',
+        '・各ポーズの実際のAI指示文：原文を改変せず、個別のコピペ用ブロックに掲載。',
+        '・必要ならファイルの使い方や追記を添え、読者が内容を誤解しない構成にする。',
+        ''
+      ];
+      formatGroup(lines,'シリーズ情報',['poseVolume','poseTheme','poseSummary','poseAudience']);
+      lines.push('【収録ポーズの情報】');
+      state.poses.slice(0,count).forEach((p,index) => {
+        lines.push(`◆ ポーズ${index+1}`);
+        if (clean(p.title)) addLine(lines,'ポーズ名',p.title);
+        if (clean(p.category)) addLine(lines,'構図・種類',p.category);
+        if (clean(p.point)) addLine(lines,'特徴・アピールポイント',p.point);
+        if (clean(p.roughImage)) addLine(lines,'無料比較用：手描きラフ画像',p.roughImage);
+        if (clean(p.cleanImage)) addLine(lines,'無料比較用：完成線画画像',p.cleanImage);
+        if (clean(p.pngName)) addLine(lines,'有料配布用：背景透過PNG',p.pngName);
+        if (clean(p.downloadUrl)) addLine(lines,'有料配布：ダウンロード先',p.downloadUrl);
+        if (clean(p.actualPrompt)) lines.push('・実際に入力したAI指示文（以下が原文、書き換えない）：','＜指示文原文 開始＞',p.actualPrompt,'＜指示文原文 終了＞');
+        if (!Object.values(p).some(clean)) lines.push('・未入力：このポーズの特徴・ファイル・指示文は仮定せず、編集用プレースホルダーを使用。');
+        lines.push('');
+      });
+      formatGroup(lines,'無料エリアの紹介内容',['poseIntro','poseDepth','poseProductionStory','posePreviewNotes','poseBenefits']);
+      formatGroup(lines,'有料エリアの配布内容',['poseBundleUrl','poseFiles','poseDownloadHelp','posePromptComment']);
+      formatGroup(lines,'公開・記事のスタイル',['poseTitleStyle','poseTone','poseLength','poseNext','poseOtherLinks']);
+      const tags = getTags();
+      if (tags.length) {
+        lines.push('【指定ハッシュタグ】');
+        const preset = state.poseTagPreset;
+        if (TAG_PRESETS[preset]) lines.push('・選択セット：'+TAG_PRESETS[preset].label);
+        lines.push(tags.join(' '),'');
+      }
+      formatGroup(lines,'その他の希望',['poseMustInclude','poseDoNotInclude','poseOtherInstructions']);
+      lines.push(
+        '【無料エリアの末尾に必ず掲載する利用規約（固定文言）】',
+        ...POSE_TERMS,
+        '',
+        '【記事最下部の固定リンク（必須・変更しない）】',
+        '完成したnote記事の一番最後に、以下の2行をこの順番でそのまま掲載してください。これらの後ろには何も追加しないでください。',
+        'HP：https://toono-machi.github.io/GISHODO/',
+        'Patreon：https://www.patreon.com/cw/GISHODO'
+      );
+      return lines.join('\n').trim()+'\n';
+    }
     function renderOutput() {
       const output = buildPrompt();
       const area = el('outputText');
       const oldScroll = area.scrollTop;
       area.value = output;
       area.scrollTop = oldScroll;
-      el('outputStats').textContent = `${Array.from(output).length.toLocaleString('ja-JP')}文字 ・ ${SECTIONS.filter(sectionHasValue).length}セクション入力済み`;
+      el('outputStats').textContent = `${Array.from(output).length.toLocaleString('ja-JP')}文字 ・ ${activeSections().filter(sectionHasValue).length}セクション入力済み`;
     }
     function downloadFile(filename, content, mime) {
       const blob = new Blob([content],{type:mime});
@@ -808,17 +1069,21 @@
       }
     }
     function safeFilename() {
+      if (state.articleMode === 'pose') {
+        const vol = clean(state.poseFields.poseVolume).replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,20);
+        return `ポーズ素体集${vol ? '_Vol'+vol.replace(/^vol\.?/i,'') : ''}`;
+      }
       return clean(state.fields.gameTitle).replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,35) || 'ゲーム制作';
     }
     el('previousBtn').addEventListener('click',() => setSection(currentSection-1));
-    el('nextBtn').addEventListener('click',() => setSection(currentSection === SECTIONS.length-1 ? 0 : currentSection+1));
+    el('nextBtn').addEventListener('click',() => setSection(currentSection === activeSections().length-1 ? 0 : currentSection+1));
     el('copyBtn').addEventListener('click',copyPrompt);
     el('downloadBtn').addEventListener('click',() => {
       downloadFile(`${safeFilename()}_note代筆依頼書.txt`,buildPrompt(),'text/plain;charset=utf-8');
       toast('TXTファイルを保存しました');
     });
     el('exportBtn').addEventListener('click',() => {
-      const snapshot = {app:'choco-note-request-studio',version:2,savedAt:new Date().toISOString(),...state};
+      const snapshot = {app:'choco-note-request-studio',version:3,savedAt:new Date().toISOString(),...state};
       downloadFile(`${safeFilename()}_記事依頼データ.json`,JSON.stringify(snapshot,null,2),'application/json;charset=utf-8');
       toast('JSONデータを保存しました');
     });
@@ -836,22 +1101,40 @@
         if (imported.fields.gameTitle && !imported.gameTitles.includes(imported.fields.gameTitle)) imported.fields.gameTitle = '';
         state = imported;
         currentSection = 0;
-        renderSection(); refreshAfterInput();
+        renderSection(); refreshAfterInput(); updateTemplateButtons();
         toast('保存データを読み込みました');
       } catch(error) { toast('読み込めませんでした：'+error.message); }
       event.target.value = '';
     });
     el('resetBtn').addEventListener('click',() => {
-      if (!confirm('記事の入力内容をクリアしますか？\n登録済みのゲームタイトルと現在選択中のタイトルは残ります。')) return;
+      if (!confirm('記事の入力内容をクリアしますか？\n登録済みのゲームタイトルと現在選択中のタイトル・記事テンプレートは残ります。')) return;
       const savedTitles = [...state.gameTitles];
       const selectedTitle = state.fields.gameTitle;
+      const mode = state.articleMode;
       state = defaultState();
+      state.articleMode = mode;
       state.gameTitles = savedTitles;
       if (selectedTitle) state.fields.gameTitle = selectedTitle;
       currentSection = 0;
-      renderSection(); refreshAfterInput(); toast('記事入力をクリアしました（登録済みタイトルは保持）');
+      renderSection(); refreshAfterInput(); updateTemplateButtons(); toast('記事入力をクリアしました（登録済みタイトルは保持）');
     });
-    renderSection(); renderNav(); renderOutput();
+    function updateTemplateButtons() {
+      el('modeGame').setAttribute('aria-pressed',String(state.articleMode !== 'pose'));
+      el('modePose').setAttribute('aria-pressed',String(state.articleMode === 'pose'));
+      el('outputText').setAttribute('aria-label',state.articleMode === 'pose' ? 'ポーズ素体集の代筆依頼書' : 'ゲーム制作記事の代筆依頼書');
+      el('sectionCount').title = state.articleMode === 'pose' ? 'ポーズ素体集向けの入力モードです' : 'ゲーム制作記事向けの入力モードです';
+      document.querySelector('.preview-lead').textContent = state.articleMode === 'pose'
+        ? '300円の有料素体集向け。無料／有料エリア、規約、ポーズ別のPNGと実際のプロンプトを整理します。'
+        : '記入した内容だけを反映。固定の執筆条件と、記事の最後に載せるHP・Patreonのリンクは必ず追加します。';
+    }
+    document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click',() => {
+      if (state.articleMode === button.dataset.mode) return;
+      state.articleMode = button.dataset.mode;
+      currentSection = 0;
+      renderSection(); refreshAfterInput(); updateTemplateButtons();
+      toast(state.articleMode === 'pose' ? '有料ポーズ素体集テンプレートに切り替えました' : 'ゲーム制作記事テンプレートに切り替えました');
+    }));
+    renderSection(); renderNav(); renderOutput(); updateTemplateButtons();
   </script>
 </body>
 </html>
